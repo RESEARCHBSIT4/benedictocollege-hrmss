@@ -1,0 +1,2466 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Benedicto College – HR Management</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap');
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Inter', sans-serif; background: #f4f5f9; color: #171a2b; }
+    h1, h2, h3, .brand { font-family: 'Poppins', sans-serif; }
+    :root {
+      --navy: #0d1642; --navy-2: #141f5c; --navy-light: #1b2a70;
+      --gold: #c99a3c; --green: #3aa65b; --red: #e0473c;
+      --amber: #e2a63b; --bg: #f4f5f9; --card: #ffffff;
+      --line: #e7e9f2; --ink: #171a2b; --sub: #6b7085; --orange: #e8722a;
+    }
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-thumb { background: #c9cce0; border-radius: 8px; }
+
+    .auth-page {
+      min-height: 100vh; display: flex; align-items: center; justify-content: center;
+      padding: 20px; position: relative; overflow: hidden;
+    }
+    .auth-page::before {
+      content: ""; position: absolute; top: -30px; left: -30px; right: -30px; bottom: -30px;
+      background: url('benedicto.jpg') center/cover no-repeat;
+      filter: blur(8px) brightness(0.75) saturate(1.2);
+      transform: scale(1.08);
+      z-index: 0;
+    }
+    .auth-page::after {
+      content: "";
+      position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+      background: linear-gradient(180deg, rgba(13,22,66,0.25) 0%, rgba(13,22,66,0.45) 100%);
+      z-index: 0;
+    }
+    .auth-card {
+      position: relative; z-index: 1; background: #ffffff; border-radius: 20px;
+      padding: 68px 32px 28px; max-width: 400px; width: 100%;
+      box-shadow: 0 30px 80px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.08);
+      margin-top: 55px;
+    }
+    .auth-card .brand-badge {
+      position: absolute; top: -58px; left: 50%; transform: translateX(-50%);
+      width: 115px; height: 115px; border-radius: 50%; background: #fff;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.18); border: 5px solid #fff;
+      overflow: hidden; z-index: 2; margin: 0;
+    }
+    .auth-card .brand-badge img { width: 100%; height: 100%; object-fit: contain; border-radius: 50%; padding: 4px; }
+    .auth-card h2 { text-align: center; font-size: 22px; margin-bottom: 6px; color: #171a2b; font-weight: 700; }
+    .auth-card .sub { text-align: center; color: var(--sub); font-size: 14px; margin-bottom: 28px; }
+    .auth-card .field { margin-bottom: 16px; }
+    .auth-card .field label { display: block; font-size: 12.5px; color: var(--sub); font-weight: 600; margin-bottom: 6px; }
+    .auth-card .field input, .auth-card .field select {
+      width: 100%; padding: 12px 14px; border-radius: 10px; border: 1px solid #e0e2e8;
+      background: #f5f6f8; font-size: 14px; font-family: inherit; transition: all 0.15s;
+    }
+    .auth-card .field input:focus, .auth-card .field select:focus {
+      outline: none; border-color: #e8722a; background: #fff;
+      box-shadow: 0 0 0 3px rgba(232,114,42,0.12);
+    }
+    .auth-card .btn {
+      width: 100%; padding: 13px; border: none; border-radius: 10px; font-size: 15px;
+      font-weight: 700; cursor: pointer; background: #e8722a; color: #fff;
+      transition: opacity 0.15s, transform 0.1s; margin-top: 4px;
+    }
+    .auth-card .btn:hover { opacity: 0.9; transform: translateY(-1px); }
+    .auth-card .error-msg {
+      background: #fde7e6; color: #b3271f; padding: 10px 14px; border-radius: 8px;
+      font-size: 13px; margin-bottom: 16px; display: none;
+    }
+    .auth-card .error-msg.show { display: block; }
+    .auth-copyright { text-align: center; font-size: 11px; color: #a0a3b0; margin-top: 24px; letter-spacing: 0.3px; }
+
+    #app { display: flex; min-height: 100vh; display: none; }
+    #app.show { display: flex; }
+
+    #sidebar {
+      width: 250px; background: linear-gradient(180deg, var(--navy) 0%, var(--navy-2) 100%);
+      color: #fff; position: fixed; top: 0; bottom: 0; left: 0;
+      display: flex; flex-direction: column; z-index: 30; transition: transform 0.25s;
+    }
+    .brand-row { display: flex; gap: 12px; align-items: center; padding: 22px 18px; border-bottom: 1px solid rgba(255,255,255,0.12); }
+    .brand-badge {
+      width: 46px; height: 46px; border-radius: 50%; background: #fff;
+      display: flex; align-items: center; justify-content: center; font-weight: 800;
+      color: var(--navy); flex-shrink: 0; font-family: 'Poppins', sans-serif;
+      font-size: 14px; letter-spacing: 0.5px; overflow: hidden;
+      border: 2px solid rgba(255,255,255,0.15);
+    }
+    .brand-badge img { width: 100%; height: 100%; object-fit: contain; padding: 3px; }
+    .brand small { display: block; font-size: 10px; color: #a9b0d8; letter-spacing: 0.8px; margin-top: 3px; font-weight: 500; }
+    .brand strong { font-size: 15px; line-height: 1.2; letter-spacing: 0.3px; display: block; }
+
+    nav.sidenav { flex: 1; padding: 14px 12px; overflow-y: auto; }
+    .nav-item {
+      display: flex; align-items: center; gap: 12px; padding: 11px 14px;
+      border-radius: 12px; color: #c7cbea; cursor: pointer; font-size: 14.5px;
+      margin-bottom: 3px; transition: background 0.15s, color 0.15s;
+    }
+    .nav-item i { width: 18px; text-align: center; font-size: 15px; }
+    .nav-item:hover { background: rgba(255,255,255,0.08); color: #fff; }
+    .nav-item.active { background: var(--navy-light); color: #fff; font-weight: 600; box-shadow: inset 0 0 0 1px rgba(145, 143, 143, 0.06); }
+    .role-employee .nav-item.active { background: var(--orange); }
+    .nav-badge { margin-left: auto; background: #e0473c; color: #fff; font-size: 10.5px; font-weight: 700; padding: 1px 7px; border-radius: 20px; }
+    .nav-new { margin-left: auto; background: #3aa65b; color: #fff; font-size: 9.5px; font-weight: 700; padding: 2px 7px; border-radius: 20px; letter-spacing: 0.4px; }
+
+    .sidebar-foot { padding: 14px; }
+    .day-card { background: rgba(255,255,255,0.06); border-radius: 14px; padding: 14px; display: flex; align-items: center; gap: 12px; }
+    .day-card .ic { width: 36px; height: 36px; border-radius: 10px; background: rgba(255,255,255,0.1); display: flex; align-items: center; justify-content: center; }
+    .day-card .day { font-weight: 700; font-size: 14px; }
+    .day-card .date { font-size: 11px; color: #a9b0d8; }
+    .day-card .time { margin-left: auto; text-align: right; font-family: 'Poppins', sans-serif; font-size: 16px; font-weight: 600; }
+    .day-card .ampm { font-size: 10px; color: #a9b0d8; }
+
+    #main { margin-left: 250px; flex: 1; display: flex; flex-direction: column; min-width: 0; }
+    header.topbar {
+      background: #fff; border-bottom: 1px solid var(--line); padding: 14px 26px;
+      display: flex; align-items: center; gap: 20px; position: sticky; top: 0; z-index: 20;
+    }
+    .menu-toggle { display: none; background: none; border: none; font-size: 18px; color: var(--navy); cursor: pointer; }
+    .search-wrap { flex: 1; max-width: 520px; position: relative; }
+    .search-wrap input {
+      width: 100%; padding: 11px 14px 11px 40px; border-radius: 12px;
+      border: 1px solid var(--line); background: #f6f7fb; font-size: 13.5px;
+    }
+    .search-wrap input:focus { outline: none; border-color: var(--navy-light); background: #fff; box-shadow: 0 0 0 3px rgba(27,42,112,0.08); }
+    .search-wrap i { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: #9497ac; }
+    .topbar-right { margin-left: auto; display: flex; align-items: center; gap: 16px; }
+    .bell { position: relative; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: #f2f3f8; cursor: pointer; color: var(--navy); font-size: 16px; border: none; }
+    .bell .dot { position: absolute; top: 6px; right: 7px; width: 9px; height: 9px; background: var(--red); border-radius: 50%; border: 2px solid #fff; }
+    .user-chip { display: flex; align-items: center; gap: 10px; padding-left: 16px; border-left: 1px solid var(--line); cursor: default; }
+    .avatar { width: 38px; height: 38px; border-radius: 50%; background: #e7e9f2; display: flex; align-items: center; justify-content: center; color: #9497ac; }
+    .user-chip .who { line-height: 1.2; text-align: right; }
+    .user-chip .name { font-weight: 700; font-size: 13.5px; }
+    .user-chip .role { font-size: 11px; color: var(--sub); }
+    .logout-btn { background: none; border: none; color: var(--red); font-size: 13px; font-weight: 600; cursor: pointer; padding: 6px 12px; border-radius: 8px; transition: background 0.15s; }
+    .logout-btn:hover { background: #fde7e6; }
+
+    #page { padding: 26px; flex: 1; }
+
+    #notifPanel {
+      position: fixed; top: 70px; right: 26px; width: 330px; background: #fff;
+      border-radius: 16px; box-shadow: 0 20px 50px rgba(20,25,60,0.2);
+      border: 1px solid var(--line); z-index: 50; display: none; overflow: hidden;
+    }
+    #notifPanel.show { display: block; }
+    .notif-head { padding: 14px 16px; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; align-items: center; font-weight: 700; }
+    .notif-head button { background: none; border: none; color: #9497ac; cursor: pointer; font-size: 15px; }
+    .notif-item { display: flex; gap: 12px; padding: 12px 16px; border-bottom: 1px solid #f2f3f8; cursor: default; }
+    .notif-item:hover { background: #f9f9fc; }
+    .notif-item .ic { width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 12px; }
+    .notif-item p { margin: 0; font-size: 13px; font-weight: 600; }
+    .notif-item span { font-size: 11px; color: var(--sub); }
+
+    .page-title { font-size: 24px; font-weight: 800; margin: 0 0 4px; }
+    .page-sub { color: var(--sub); font-size: 14px; margin: 0 0 22px; }
+    .grid-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 20px; }
+    .stat-card {
+      background: var(--card); border: 1px solid var(--line); border-radius: 16px;
+      padding: 18px; display: flex; flex-direction: column; gap: 10px;
+      transition: transform 0.75s, box-shadow 0.15s;
+    }
+    .stat-card:hover { transform: translateY(-3px); box-shadow: 0 14px 30px rgba(162, 162, 167, 0.08); }
+    .stat-top { display: flex; align-items: center; gap: 12px; }
+    .stat-ic { width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 17px; flex-shrink: 0; }
+    .stat-label { font-size: 11.5px; font-weight: 700; letter-spacing: 0.6px; color: var(--sub); text-transform: uppercase; }
+    .stat-num { font-size: 30px; font-weight: 800; font-family: 'Poppins', sans-serif; }
+    .stat-link { font-size: 12.5px; color: var(--navy-light); font-weight: 600; text-decoration: none; cursor: pointer; }
+    .role-employee .stat-link { color: var(--orange); }
+
+    .panel { background: var(--card); border: 3px solid var(--line); border-radius: 16px; padding: 20px; translate: var(--bg);}
+    .two-col { display: grid; grid-template-columns: 2fr 1fr; gap: 18px; align-items: start; }
+    @media (max-width: 980px) { .two-col { grid-template-columns: 1fr; } }
+    .panel-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+    .panel-head h3 { margin: 0; font-size: 16px; }
+    .view-all { font-size: 12.5px; color: var(--navy-light); font-weight: 600; cursor: pointer; }
+    .role-employee .view-all { color: var(--orange); }
+
+    .activity-row, .qa-row { display: flex; gap: 12px; align-items: flex-start; padding: 11px 0; border-bottom: 1px solid #f2f3f8; }
+    .activity-row:last-child { border-bottom: none; }
+    .activity-ic { width: 34px; height: 34px; border-radius: 50%; background: #f2f3f8; display: flex; align-items: center; justify-content: center; color: var(--navy); flex-shrink: 0; }
+    .activity-row p { margin: 0; font-size: 13.5px; font-weight: 600; }
+    .activity-row span { font-size: 11.5px; color: var(--sub); }
+
+    .qa-btn {
+      display: flex; align-items: center; gap: 10px; padding: 13px 14px;
+      border-radius: 12px; background: #f6f7fb; border: 1px solid var(--line);
+      cursor: pointer; font-weight: 600; font-size: 13.5px; color: var(--navy);
+      margin-bottom: 10px; width: 100%; text-align: left;
+    }
+    .qa-btn:hover { background: #eef0f8; }
+    .qa-btn i { color: var(--navy-light); }
+
+    table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+    th { text-align: left; font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--sub); padding: 10px 12px; border-bottom: 1px solid var(--line); }
+    td { padding: 12px; border-bottom: 1px solid #f2f3f8; vertical-align: middle; }
+    tr:hover td { background: #fafafe; }
+    .pill { padding: 4px 11px; border-radius: 20px; font-size: 11.5px; font-weight: 700; display: inline-block; }
+    .pill-active { background: #e2f7e8; color: #1e7d3f; }
+    .pill-inactive { background: #fde7e6; color: #b3271f; }
+    .pill-leave { background: #fdf0dc; color: #9a6a10; }
+    .pill-pending { background: #fdf0dc; color: #9a6a10; }
+    .pill-approved { background: #e2f7e8; color: #1e7d3f; }
+    .pill-rejected { background: #fde7e6; color: #b3271f; }
+
+    .btn { border: none; border-radius: 10px; padding: 9px 16px; font-size: 13px; font-weight: 700; cursor: pointer; transition: opacity 0.15s; }
+    .btn:hover { opacity: 0.88; }
+    .btn-navy { background: var(--navy); color: #fff; }
+    .btn-outline { background: #fff; color: var(--navy); border: 1px solid var(--line); }
+    .btn-green { background: var(--green); color: #fff; }
+    .btn-red { background: var(--red); color: #fff; }
+    .btn-sm { padding: 6px 12px; font-size: 12px; }
+    .role-employee .btn-navy { background: var(--orange); }
+
+    .toolbar { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 18px; align-items: center; }
+    .toolbar input, .toolbar select { padding: 9px 12px; border: 1px solid var(--line); border-radius: 10px; font-size: 13px; background: #fff; }
+    .toolbar input { flex: 1; min-width: 180px; }
+
+    .dept-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
+    .dept-card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; overflow: hidden; transition: transform 0.2s, box-shadow 0.2s; cursor: pointer; }
+    .dept-card:hover { transform: translateY(-3px); box-shadow: 0 14px 30px rgba(162,162,167,0.1); }
+    .dept-card .stripe { height: 5px; background: linear-gradient(90deg, var(--navy), var(--navy-light)); }
+    .role-employee .dept-card .stripe { background: linear-gradient(90deg, var(--orange), #f09340); }
+    .dept-body { padding: 22px; }
+    .dept-body .name { font-size: 17px; font-weight: 700; margin: 0 0 6px; font-family: 'Poppins', sans-serif; color: var(--ink); line-height: 1.3; }
+    .dept-body .count { font-size: 32px; font-weight: 800; margin: 0 0 4px; font-family: 'Poppins', sans-serif; color: var(--navy); }
+    .role-employee .dept-body .count { color: var(--orange); }
+    .dept-body .label { color: var(--sub); font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px; font-weight: 600; }
+    .dept-body .detail { font-size: 12.5px; color: var(--sub); margin: 10px 0 16px; line-height: 1.5; }
+    .dept-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 4px; }
+    .dept-icon-wrap { width: 48px; height: 48px; border-radius: 14px; background: linear-gradient(135deg, var(--navy), var(--navy-light)); display: flex; align-items: center; justify-content: center; color: #fff; font-size: 18px; flex-shrink: 0; }
+    .role-employee .dept-icon-wrap { background: linear-gradient(135deg, var(--orange), #f09340); }
+    .dept-header { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; }
+
+    .form-section h3 { font-size: 15px; color: var(--navy); border-bottom: 1px solid var(--line); padding-bottom: 10px; margin: 26px 0 16px; }
+    .role-employee .form-section h3 { color: var(--orange); }
+    .form-section:first-child h3 { margin-top: 0; }
+    .form-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+    @media (max-width: 800px) { .form-grid { grid-template-columns: 1fr; } }
+    .field label { display: block; font-size: 12.5px; color: var(--sub); margin-bottom: 6px; font-style: italic; }
+    .field input, .field select { width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: #f6f7fb; font-size: 13.5px; font-family: inherit; }
+
+    .modal-bg { position: fixed; inset: 0; background: rgba(13,22,66,0.45); backdrop-filter: blur(2px); z-index: 60; display: none; align-items: center; justify-content: center; padding: 20px; }
+    .modal-bg.show { display: flex; }
+    .modal { background: #fff; border-radius: 18px; max-width: 520px; width: 100%; padding: 28px; position: relative; max-height: 88vh; overflow-y: auto; }
+    .modal-close { position: absolute; top: 16px; right: 16px; background: #f2f3f8; border: none; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; color: var(--sub); }
+    .modal-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #f2f3f8; font-size: 13.5px; }
+    .modal-row span:first-child { color: var(--sub); }
+    .modal-row span:last-child { font-weight: 600; }
+
+    .success-tick { width: 64px; height: 64px; border-radius: 50%; background: #e2f7e8; color: var(--green); display: flex; align-items: center; justify-content: center; font-size: 28px; margin: 0 auto 14px; }
+
+    .empty-state { text-align: center; padding: 60px 20px; color: var(--sub); }
+    .empty-state i { font-size: 38px; margin-bottom: 14px; color: #c9cce0; }
+
+    .toast {
+      position: fixed; bottom: 24px; right: 24px; background: var(--navy); color: #fff;
+      padding: 14px 20px; border-radius: 12px; font-size: 13.5px; font-weight: 600;
+      box-shadow: 0 14px 30px rgba(20,25,60,0.25); z-index: 80; display: flex;
+      align-items: center; gap: 10px; transform: translateY(20px); opacity: 0; transition: all 0.25s;
+    }
+    .toast.show { transform: translateY(0); opacity: 1; }
+
+    .chart-box { position: relative; height: 290px; }
+
+    .complaint-row { display: flex; justify-content: space-between; align-items: flex-start; padding: 14px 0; border-bottom: 1px solid #f2f3f8; gap: 12px; }
+    .prio { padding: 3px 10px; border-radius: 20px; font-size: 10.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.4px; }
+    .prio-high { background: #fde7e6; color: #b3271f; }
+    .prio-medium { background: #fdf0dc; color: #9a6a10; }
+    .prio-low { background: #e6ecfb; color: #2c4ba3; }
+
+    .reply-box { background: #f6f7fb; border-radius: 10px; padding: 12px; margin-top: 8px; font-size: 13px; border-left: 3px solid var(--navy-light); }
+    .reply-box .reply-label { font-weight: 600; color: var(--navy-light); font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+
+    /* ─── Complaint Tabs ─── */
+    .complaint-tabs { display: flex; gap: 10px; margin-bottom: 18px; }
+    .complaint-tab {
+      display: flex; align-items: center; gap: 8px;
+      padding: 10px 18px; border-radius: 12px;
+      background: #fff; border: 1px solid var(--line);
+      font-size: 13.5px; font-weight: 700; color: var(--sub);
+      cursor: pointer; transition: all 0.15s; user-select: none;
+    }
+    .complaint-tab:hover { background: #f6f7fb; }
+    .complaint-tab.active { background: var(--navy); color: #fff; border-color: var(--navy); box-shadow: 0 4px 14px rgba(13,22,66,0.15); }
+    .role-employee .complaint-tab.active { background: var(--orange); border-color: var(--orange); }
+    .complaint-tab .tab-badge {
+      background: var(--red); color: #fff; font-size: 11px; font-weight: 800;
+      padding: 2px 8px; border-radius: 20px; min-width: 22px; text-align: center;
+    }
+    .complaint-tab.active .tab-badge { background: rgba(255,255,255,0.25); }
+    .complaint-tab .tab-icon { font-size: 14px; }
+
+    @media (max-width: 900px) {
+      #sidebar { transform: translateX(-100%); }
+      #sidebar.open { transform: translateX(0); }
+      #main { margin-left: 0; }
+      .menu-toggle { display: block; }
+      .form-grid { grid-template-columns: 1fr; }
+    }
+
+    /* ─── User Dropdown ─── */
+    .user-dropdown { position: relative; }
+    .user-trigger { display: flex; align-items: center; gap: 10px; padding: 6px 14px 6px 6px; border-radius: 12px; cursor: pointer; transition: background 0.15s; border: 1px solid transparent; }
+    .user-trigger:hover { background: #f2f3f8; border-color: var(--line); }
+    .user-trigger i.fa-chevron-down { color: var(--sub); font-size: 11px; margin-left: 4px; transition: transform 0.2s; }
+    .user-dropdown.open .user-trigger i.fa-chevron-down { transform: rotate(180deg); }
+    .dropdown-menu { position: absolute; top: calc(100% + 8px); right: 0; background: #fff; border-radius: 14px; box-shadow: 0 20px 50px rgba(20,25,60,0.18); border: 1px solid var(--line); min-width: 220px; padding: 8px 0; opacity: 0; visibility: hidden; transform: translateY(-8px) scale(0.96); transform-origin: top right; transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1); z-index: 100; }
+    .dropdown-menu.show { opacity: 1; visibility: visible; transform: translateY(0) scale(1); }
+    .dropdown-item { display: flex; align-items: center; gap: 12px; padding: 11px 18px; font-size: 13.5px; color: var(--ink); cursor: pointer; transition: background 0.15s; }
+    .dropdown-item:hover { background: #f6f7fb; }
+    .dropdown-item i { width: 18px; text-align: center; color: var(--sub); font-size: 14px; }
+    .dropdown-divider { height: 1px; background: var(--line); margin: 6px 0; }
+    .dropdown-item.logout { color: var(--red); }
+    .dropdown-item.logout i { color: var(--red); }
+
+    /* ─── Dashboard Info Cards ─── */
+    .info-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 20px; }
+    .info-card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 26px 16px; text-align: center; transition: transform 0.2s, box-shadow 0.2s; }
+    .info-card:hover { transform: translateY(-3px); box-shadow: 0 14px 30px rgba(162,162,167,0.1); }
+    .info-card .icon-wrap { width: 56px; height: 56px; margin: 0 auto 14px; display: flex; align-items: center; justify-content: center; }
+    .info-card .icon-wrap svg { width: 40px; height: 40px; stroke: var(--navy); stroke-width: 1.5; fill: none; }
+    .role-employee .info-card .icon-wrap svg { stroke: var(--orange); }
+    .info-card .value { font-size: 20px; font-weight: 800; font-family: 'Poppins', sans-serif; color: var(--ink); margin-bottom: 6px; }
+    .info-card .label { font-size: 11px; font-weight: 700; color: var(--orange); text-transform: uppercase; letter-spacing: 1.2px; }
+
+    /* ─── Employment Info Layout ─── */
+    .emp-info-grid { display: grid; grid-template-columns: 300px 1fr; gap: 20px; }
+    .profile-sidebar-card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 28px 22px; text-align: center; }
+    .profile-avatar-lg { width: 90px; height: 90px; border-radius: 50%; background: linear-gradient(135deg, var(--navy), var(--navy-light)); display: flex; align-items: center; justify-content: center; margin: 0 auto 14px; color: #fff; font-size: 32px; font-weight: 700; font-family: 'Poppins', sans-serif; }
+    .role-employee .profile-avatar-lg { background: linear-gradient(135deg, var(--orange), #f09340); }
+    .profile-sidebar-card h3 { font-size: 17px; font-weight: 700; margin-bottom: 4px; }
+    .role-badge { display: inline-block; background: #fff3e6; color: var(--orange); padding: 4px 14px; border-radius: 20px; font-size: 11px; font-weight: 700; margin-bottom: 18px; letter-spacing: 0.5px; }
+    .profile-meta { text-align: left; }
+    .profile-meta-item { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--line); font-size: 12.5px; }
+    .profile-meta-item:last-child { border-bottom: none; }
+    .profile-meta-item i { color: var(--sub); width: 18px; text-align: center; font-size: 13px; }
+    .profile-meta-item span { color: var(--sub); }
+    .profile-meta-item strong { color: var(--ink); margin-left: auto; font-weight: 600; font-size: 12.5px; }
+    .info-sections { display: flex; flex-direction: column; gap: 18px; }
+    .info-section { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 22px; }
+    .section-title { font-size: 13px; font-weight: 700; color: var(--navy); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 18px; padding-bottom: 10px; border-bottom: 2px solid var(--line); }
+    .role-employee .section-title { color: var(--orange); }
+    .info-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+    .info-field { display: flex; flex-direction: column; gap: 5px; }
+    .info-field label { font-size: 11px; font-weight: 700; color: var(--sub); text-transform: uppercase; letter-spacing: 0.5px; }
+    .info-field .value-box { background: #f6f7fb; border: 1px solid var(--line); border-radius: 10px; padding: 11px 13px; font-size: 13.5px; font-weight: 600; color: var(--ink); }
+
+    /* ─── Reports ─── */
+    .report-card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 20px; margin-bottom: 14px; transition: box-shadow 0.2s; }
+    .report-card:hover { box-shadow: 0 8px 24px rgba(20,25,60,0.08); }
+    .report-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; }
+    .report-header h4 { margin: 0; font-size: 15px; font-weight: 700; }
+    .report-meta { display: flex; gap: 16px; font-size: 12px; color: var(--sub); margin-bottom: 12px; }
+    .rating-stars { display: flex; gap: 3px; }
+    .rating-stars i { font-size: 14px; color: #e2a63b; }
+    .rating-stars i.empty { color: #ddd; }
+    .report-categories { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin: 12px 0; }
+    .report-cat { background: #f8f9fc; border-radius: 10px; padding: 10px 12px; }
+    .report-cat-name { font-size: 11px; font-weight: 700; color: var(--sub); text-transform: uppercase; margin-bottom: 4px; }
+    .report-cat-val { font-size: 13px; font-weight: 600; }
+    .report-section-title { font-size: 12px; font-weight: 700; color: var(--navy); text-transform: uppercase; letter-spacing: 0.5px; margin: 14px 0 6px; }
+    .role-employee .report-section-title { color: var(--orange); }
+    .report-text { font-size: 13px; color: var(--ink); line-height: 1.5; background: #f8f9fc; border-radius: 10px; padding: 12px; }
+    .report-status { font-size: 11px; font-weight: 700; padding: 4px 12px; border-radius: 20px; text-transform: uppercase; }
+    .status-finalized { background: #e2f7e8; color: #1e7d3f; }
+    .status-draft { background: #fdf0dc; color: #9a6a10; }
+    .report-actions { display: flex; gap: 8px; margin-top: 14px; }
+
+    /* ─── Page Header with inline button ─── */
+    .page-header-flex { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px; margin-bottom: 18px; }
+    .page-header-flex .page-title { margin-bottom: 4px; }
+    .page-header-flex .page-sub { margin-bottom: 0; }
+
+    @media (max-width: 1100px) { .info-cards { grid-template-columns: repeat(2, 1fr); } .emp-info-grid { grid-template-columns: 1fr; } }
+    @media (max-width: 768px) { .info-cards { grid-template-columns: 1fr; } .info-row { grid-template-columns: 1fr; } .report-categories { grid-template-columns: 1fr; } }
+
+  </style>
+<base target="_blank">
+<base target="_blank">
+<base target="_blank">
+<base target="_blank">
+<base target="_blank">
+<base target="_blank">
+<base target="_blank">
+</head>
+<body>
+
+  <div id="authContainer"></div>
+
+  <div id="app">
+    <aside id="sidebar">
+      <div class="brand-row">
+        <div class="brand-badge"><img src="https://www.image2url.com/r2/default/images/1785224447454-1ba63284-34be-4f69-a1e9-4249c7625d41.png" alt="Benedicto College Logo" /></div>
+        <div class="brand">
+          <strong>BENEDICTO<br />COLLEGE</strong>
+          <small>HR MANAGEMENT SYSTEM</small>
+        </div>
+      </div>
+      <nav class="sidenav" id="sidenav"></nav>
+      <div class="sidebar-foot">
+        <div class="day-card">
+          <div class="ic"><i class="fas fa-calendar-day"></i></div>
+          <div>
+            <div class="date" style="opacity:.7">Today is</div>
+            <div class="day" id="curDay">-</div>
+            <div class="date" id="curDate">-</div>
+          </div>
+          <div style="margin-left:auto;text-align:right;">
+            <div class="time" id="curTime">-</div>
+            <div class="ampm" id="curAmpm">-</div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <div id="main">
+      <header class="topbar">
+        <button class="menu-toggle" onclick="document.getElementById('sidebar').classList.toggle('open')">
+          <i class="fas fa-bars"></i>
+        </button>
+        <div class="search-wrap">
+          <i class="fas fa-search"></i>
+          <input type="text" id="globalSearch" placeholder="Search employee, ID, name, department…" />
+        </div>
+        <div class="topbar-right">
+          <button class="bell" onclick="toggleNotif()"><i class="fas fa-bell"></i><span class="dot"></span></button>
+          <div class="user-dropdown" id="userDropdown">
+            <div class="user-trigger" onclick="toggleUserDropdown(event)">
+              <div class="avatar"><i class="fas fa-user"></i></div>
+              <div class="who">
+                <div class="name" id="userName">Admin</div>
+                <div class="role" id="userRole">HR Manager</div>
+              </div>
+              <i class="fas fa-chevron-down"></i>
+            </div>
+            <div class="dropdown-menu" id="userDropdownMenu">
+              <div class="dropdown-item" onclick="openEditProfileModal(); closeUserDropdown();"><i class="fas fa-user-edit"></i> Edit Profile</div>
+              <div class="dropdown-divider"></div>
+              <div class="dropdown-item logout" onclick="handleLogout(); closeUserDropdown();"><i class="fas fa-sign-out-alt"></i> Log Out</div>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <div id="page"></div>
+    </div>
+
+    <div id="notifPanel">
+      <div class="notif-head"><span>Notifications</span><button onclick="toggleNotif()"><i class="fas fa-times"></i></button></div>
+      <div id="notifList"></div>
+    </div>
+  </div>
+
+  <div class="modal-bg" id="modalBg">
+    <div class="modal" id="modalBody"></div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+
+    const API_BASE_URL = 'http://localhost:3000/api';
+
+    let employees = [];
+    let departments = [];
+    let leaveRequests = [];
+    let announcements = [];
+    let complaints = [];
+    let activities = [];
+    let attendanceLogs = [];
+    let separated = [];
+    let reports = [];
+
+    let biometricDevice = { connected: true, model: 'ZKTeco uFace 800 (Simulated Bridge)', lastSync: null };
+
+    let currentUser = null;
+    let currentPage = 'dashboard';
+    let complaintFilter = 'pending';
+    let attendanceChart = null;
+
+    const $ = id => document.getElementById(id);
+    const authContainer = $('authContainer');
+    const appContainer = $('app');
+    const pageEl = $('page');
+    const sidebarNav = $('sidenav');
+    const globalSearch = $('globalSearch');
+    const notifPanel = $('notifPanel');
+    const notifList = $('notifList');
+    const modalBg = $('modalBg');
+    const modalBody = $('modalBody');
+    const toastEl = $('toast');
+
+    function showToast(msg, icon = 'fa-circle-check') {
+      toastEl.innerHTML = `<i class="fas ${icon}"></i> ${msg}`;
+      toastEl.classList.add('show');
+      clearTimeout(window._toastTimer);
+      window._toastTimer = setTimeout(() => toastEl.classList.remove('show'), 2600);
+    }
+
+    function openModal(html) {
+      modalBody.innerHTML = html;
+      modalBg.classList.add('show');
+    }
+
+    function closeModal() { modalBg.classList.remove('show'); }
+    modalBg.addEventListener('click', e => { if (e.target === modalBg) closeModal(); });
+
+    function toggleNotif() {
+      renderNotifications();
+      notifPanel.classList.toggle('show');
+    }
+
+    function todayStr() { return new Date().toISOString().slice(0, 10); }
+
+    function formatTime(d) {
+      let h = d.getHours();
+      const ampm = h >= 12 ? 'PM' : 'AM';
+      h = h % 12 || 12;
+      const m = String(d.getMinutes()).padStart(2, '0');
+      return `${h}:${m} ${ampm}`;
+    }
+
+    function tickClock() {
+      const now = new Date();
+      const days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+      const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+      $('curDay').textContent = days[now.getDay()];
+      $('curDate').textContent = months[now.getMonth()] + ' ' + now.getDate() + ', ' + now.getFullYear();
+      let h = now.getHours();
+      const ampm = h >= 12 ? 'PM' : 'AM';
+      h = h % 12 || 12;
+      const m = String(now.getMinutes()).padStart(2, '0');
+      $('curTime').textContent = h + ':' + m;
+      $('curAmpm').textContent = ampm;
+    }
+    tickClock();
+    setInterval(tickClock, 30000);
+
+    async function loadData() {
+      try {
+        employees = await fetch(`${API_BASE_URL}/employees`).then(r => r.json());
+        departments = await fetch(`${API_BASE_URL}/departments`).then(r => r.json());
+        leaveRequests = await fetch(`${API_BASE_URL}/leave-requests`).then(r => r.json());
+        complaints = await fetch(`${API_BASE_URL}/complaints`).then(r => r.json());
+        announcements = await fetch(`${API_BASE_URL}/announcements`).then(r => r.json());
+        activities = await fetch(`${API_BASE_URL}/activities`).then(r => r.json());
+        attendanceLogs = await fetch(`${API_BASE_URL}/attendance?date=${todayStr()}`).then(r => r.json());
+        separated = await fetch(`${API_BASE_URL}/separated`).then(r => r.json());
+        reports = await fetch(`${API_BASE_URL}/reports`).then(r => r.json());
+      } catch (err) {
+        console.error('Failed to load data:', err);
+        showToast('Failed to load data from server', 'fa-triangle-exclamation');
+      }
+    }
+
+    async function reloadAndRender() {
+      await loadData();
+      renderPage();
+      renderSidebar();
+      renderNotifications();
+    }
+
+    async function handleLogin(email, password) {
+      const errEl = document.getElementById('authError');
+      errEl.classList.remove('show');
+      try {
+        const res = await fetch(`${API_BASE_URL}/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          errEl.textContent = data.error || 'Invalid email or password.';
+          errEl.classList.add('show');
+          return;
+        }
+        currentUser = data.user;
+        localStorage.setItem('bc_token', data.token);
+        localStorage.setItem('bc_user', JSON.stringify(data.user));
+        await initApp();
+      } catch (err) {
+        errEl.textContent = 'Server unreachable. Is the backend running on localhost:3000?';
+        errEl.classList.add('show');
+      }
+    }
+
+    function handleLogout() {
+      currentUser = null;
+      localStorage.removeItem('bc_token');
+      localStorage.removeItem('bc_user');
+      appContainer.classList.remove('show');
+      appContainer.style.display = 'none';
+      authContainer.style.display = 'block';
+      renderAuthPage();
+      showToast('Logged out');
+    }
+
+    function renderAuthPage() {
+      authContainer.style.display = 'block';
+      appContainer.style.display = 'none';
+      authContainer.innerHTML = `
+        <div class="auth-page">
+          <div class="auth-card">
+            <div class="brand-badge"><img src="https://www.image2url.com/r2/default/images/1785224447454-1ba63284-34be-4f69-a1e9-4249c7625d41.png" alt="Benedicto College Logo" /></div>
+            <h2>Welcome Back</h2>
+            <p class="sub">Sign in to manage HR</p>
+            <div class="error-msg" id="authError"></div>
+            <form id="authForm" onsubmit="handleAuthSubmit(event)">
+              <div class="field">
+                <label>Email Address</label>
+                <input type="email" id="authEmail" placeholder="you@benedicto.edu" required />
+              </div>
+              <div class="field">
+                <label>Password</label>
+                <input type="password" id="authPassword" placeholder="Enter your password" required minlength="6" />
+              </div>
+              <button type="submit" class="btn">Sign In</button>
+            </form>
+            <div class="auth-copyright">Benedicto College HR System</div>
+          </div>
+        </div>
+      `;
+    }
+
+    window.handleAuthSubmit = function(e) {
+      e.preventDefault();
+      const errEl = document.getElementById('authError');
+      errEl.classList.remove('show');
+      const email = document.getElementById('authEmail').value.trim();
+      const password = document.getElementById('authPassword').value.trim();
+      handleLogin(email, password);
+    };
+
+    async function initApp() {
+      const storedUser = localStorage.getItem('bc_user');
+      const token = localStorage.getItem('bc_token');
+      if (storedUser && token) {
+        try { currentUser = JSON.parse(storedUser); } catch (e) { currentUser = null; }
+      }
+      if (!currentUser) {
+        renderAuthPage();
+        return;
+      }
+
+      authContainer.style.display = 'none';
+      appContainer.style.display = 'flex';
+      appContainer.classList.add('show');
+
+      $('userName').textContent = currentUser.name;
+      $('userRole').textContent = currentUser.role === 'admin' ? 'HR Manager' : 'Employee';
+      document.getElementById('app').className = currentUser.role === 'admin' ? 'role-admin' : 'role-employee';
+
+      await loadData();
+      renderSidebar();
+      renderPage();
+      renderNotifications();
+
+      globalSearch.oninput = function() {
+        if (currentUser.role === 'admin' && currentPage !== 'employees') goTo('employees');
+        if (currentPage === 'employees') filterEmployees(this.value);
+      };
+    }
+
+    const adminNav = [
+      { id: 'dashboard', label: 'Dashboard', icon: 'fa-house' },
+      { id: 'employees', label: 'Employees', icon: 'fa-users' },
+      { id: 'departments', label: 'Departments', icon: 'fa-building' },
+      { id: 'attendance', label: 'Attendance', icon: 'fa-people-group' },
+      { id: 'leave', label: 'Leave Requests', icon: 'fa-circle-info', badge: () => leaveRequests.filter(l => l.status === 'Pending').length },
+      { id: 'complaints', label: 'Complaints', icon: 'fa-comment-dots', badge: () => complaints.filter(c => c.status === 'Pending').length },
+      { id: 'archive', label: 'Separated', icon: 'fa-folder' },
+      { id: 'reports', label: 'Reports', icon: 'fa-chart-bar' },
+      { id: 'announcements', label: 'Announcements', icon: 'fa-bullhorn' },
+    ];
+
+    const employeeNav = [
+      { id: 'dashboard', label: 'Dashboard', icon: 'fa-house' },
+      { id: 'employment', label: 'Employment Info', icon: 'fa-briefcase' },
+      { id: 'leave', label: 'My Leave', icon: 'fa-calendar', badge: () => leaveRequests.filter(l => l.status === 'Pending' && l.email === currentUser?.email).length },
+      { id: 'complaints', label: 'Complaints / Request', icon: 'fa-comment-dots', badge: () => complaints.filter(c => c.status === 'Pending' && c.employee === currentUser?.email).length },
+      { id: 'reports', label: 'My Reports', icon: 'fa-chart-bar' },
+      { id: 'announcements', label: 'Announcements', icon: 'fa-bullhorn' },
+      { id: 'attendance', label: 'My Attendance', icon: 'fa-people-group' },
+    ];
+
+    function renderSidebar() {
+      const nav = currentUser.role === 'admin' ? adminNav : employeeNav;
+      sidebarNav.innerHTML = nav.map(item => {
+        const active = item.id === currentPage ? 'active' : '';
+        let badge = '';
+        if (item.badge) {
+          const count = item.badge();
+          if (count > 0) badge = `<span class="nav-badge">${count}</span>`;
+        } else if (item.tag) {
+          badge = `<span class="nav-new">${item.tag}</span>`;
+        }
+        return `<div class="nav-item ${active}" onclick="goTo('${item.id}')">
+              <i class="fas ${item.icon}"></i><span>${item.label}</span>${badge}
+            </div>`;
+      }).join('');
+    }
+
+    window.goTo = function(page) {
+      currentPage = page;
+      document.getElementById('sidebar').classList.remove('open');
+      renderSidebar();
+      renderPage();
+    };
+
+    function renderPage() {
+      if (currentUser.role === 'admin') {
+        switch (currentPage) {
+          case 'dashboard': pageEl.innerHTML = adminDashboard(); renderAttendanceChart(); break;
+          case 'employees': pageEl.innerHTML = employeesPage(); break;
+          case 'departments': pageEl.innerHTML = departmentsPage(); break;
+          case 'attendance': pageEl.innerHTML = attendancePage(); break;
+          case 'leave': pageEl.innerHTML = leavePage(); break;
+          case 'complaints': pageEl.innerHTML = adminComplaintsPage(); break;
+          case 'addEmployee': pageEl.innerHTML = addEmployeePage(); break;
+          case 'archive': pageEl.innerHTML = archivePage(); break;
+          case 'reports': pageEl.innerHTML = adminReportsPage(); break;
+          case 'announcements': pageEl.innerHTML = announcementsPage(true); break;
+          default: pageEl.innerHTML = adminDashboard(); renderAttendanceChart();
+        }
+      } else {
+        switch (currentPage) {
+          case 'dashboard': pageEl.innerHTML = employeeDashboard(); break;
+          case 'employment': pageEl.innerHTML = employmentInfoPage(); break;
+          case 'leave': pageEl.innerHTML = employeeLeavePage(); break;
+          case 'complaints': pageEl.innerHTML = complaintsPage(); break;
+          case 'reports': pageEl.innerHTML = employeeReportsPage(); break;
+          case 'announcements': pageEl.innerHTML = announcementsPage(false); break;
+          case 'attendance': pageEl.innerHTML = employeeAttendancePage(); break;
+          default: pageEl.innerHTML = employeeDashboard();
+        }
+      }
+    }
+
+    function renderAttendanceChart() {
+      const canvas = document.getElementById('attendanceChart');
+      if (!canvas) return;
+      if (attendanceChart) { attendanceChart.destroy(); attendanceChart = null; }
+      const ctx = canvas.getContext('2d');
+      attendanceChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: ['May 26', 'May 27', 'May 28', 'May 29', 'May 30', 'May 31', 'Jun 1'],
+          datasets: [
+            { label: 'Present', data: [33, 36, 35, 29, 31, 34, 33], backgroundColor: '#3aa65b', borderRadius: 4 },
+            { label: 'Late', data: [11, 9, 8, 6, 3, 1, 4], backgroundColor: '#e2a63b', borderRadius: 4 },
+            { label: 'Absent', data: [4, 1, 1, 3, 2, 1, 3], backgroundColor: '#e0473c', borderRadius: 4 },
+          ]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { position: 'top', align: 'start', labels: { usePointStyle: true, boxWidth: 8, font: { size: 12 } } } },
+          scales: { y: { beginAtZero: true, grid: { color: '#f0f1f6' } }, x: { grid: { display: false } } }
+        }
+      });
+    }
+
+    function statCard(icon, color, label, num, link, onclick) {
+      return `<div class="stat-card">
+            <div class="stat-top">
+              <div class="stat-ic" style="background:${color}">${icon}</div>
+              <div class="stat-label">${label}</div>
+            </div>
+            <div class="stat-num">${num}</div>
+            <a class="stat-link" onclick="${onclick}">${link} <i class="fas fa-arrow-right" style="font-size:10px;"></i></a>
+          </div>`;
+    }
+
+    function adminDashboard() {
+      const total = employees.length;
+      const onLeave = employees.filter(e => e.status === 'On Leave').length;
+      const deptCount = departments.length;
+      return `
+            <h1 class="page-title">Welcome back, ${currentUser.name}!</h1>
+            <p class="page-sub">Here's what's happening at Benedicto College today.</p>
+            <div class="info-cards">
+              <div class="info-card">
+                <div class="icon-wrap">
+                  <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                </div>
+                <div class="value">${total}</div>
+                <div class="label">Total Employees</div>
+              </div>
+              <div class="info-card">
+                <div class="icon-wrap">
+                  <svg viewBox="0 0 24 24"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/><line x1="8" y1="6" x2="8.01" y2="6"/><line x1="12" y1="6" x2="12.01" y2="6"/><line x1="16" y1="6" x2="16.01" y2="6"/><line x1="8" y1="10" x2="8.01" y2="10"/><line x1="12" y1="10" x2="12.01" y2="10"/><line x1="16" y1="10" x2="16.01" y2="10"/><line x1="8" y1="14" x2="8.01" y2="14"/><line x1="12" y1="14" x2="12.01" y2="14"/><line x1="16" y1="14" x2="16.01" y2="14"/></svg>
+                </div>
+                <div class="value">${deptCount}</div>
+                <div class="label">Departments</div>
+              </div>
+              <div class="info-card">
+                <div class="icon-wrap">
+                  <svg viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                </div>
+                <div class="value">${onLeave}</div>
+                <div class="label">On Leave</div>
+              </div>
+              <div class="info-card">
+                <div class="icon-wrap">
+                  <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><circle cx="12" cy="15" r="2"/><path d="M12 13v-2"/></svg>
+                </div>
+                <div class="value">${complaints.filter(c=>c.status==='Pending').length}</div>
+                <div class="label">Pending Complaints</div>
+              </div>
+            </div>
+            <div class="two-col">
+              <div class="panel">
+                <div class="panel-head"><h3>Attendance Overview (This Month)</h3></div>
+                <div class="chart-box"><canvas id="attendanceChart"></canvas></div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:18px;">
+                <div class="panel">
+                  <div class="panel-head"><h3>Recent Activities</h3><span class="view-all">View all</span></div>
+                  ${activities.slice(0,4).map(a => `
+                    <div class="activity-row">
+                      <div class="activity-ic"><i class="fas ${a.icon}"></i></div>
+                      <div><p>${a.text}</p><span>${a.when}</span></div>
+                    </div>
+                  `).join('') || '<div class="activity-row"><div><p>No recent activities</p></div></div>'}
+                </div>
+                <div class="panel">
+                  <div class="panel-head"><h3>Quick Actions</h3></div>
+                  <div class="qa-btn" onclick="goTo('addEmployee')"><i class="fas fa-plus"></i> Add Employee</div>
+                  <div class="qa-btn" onclick="goTo('attendance')"><i class="fas fa-calendar-check"></i> Update Attendance</div>
+                  <div class="qa-btn" onclick="goTo('reports')"><i class="fas fa-chart-bar"></i> View Reports</div>
+                </div>
+              </div>
+            </div>
+          `;
+    }
+
+    function employeesPage(query = '') {
+      const filtered = employees.filter(e => {
+        const s = (e.first + ' ' + e.last + ' ' + e.id + ' ' + e.department + ' ' + e.position).toLowerCase();
+        return s.includes(query.toLowerCase());
+      });
+      return `
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:16px;margin-bottom:20px;">
+              <div>
+                <h1 class="page-title" style="margin-bottom:4px;">Employees</h1>
+                <p class="page-sub" style="margin-bottom:0;">Manage all employee records.</p>
+              </div>
+              <div class="dept-card" onclick="goTo('addEmployee')" style="cursor:pointer;max-width:280px;flex-shrink:0;">
+                <div class="stripe" style="background:var(--green);height:4px;"></div>
+                <div class="dept-body" style="display:flex;align-items:center;gap:12px;padding:14px 18px;">
+                  <div style="width:38px;height:38px;border-radius:10px;background:linear-gradient(135deg,#3aa65b,#2d8a4a);display:flex;align-items:center;justify-content:center;color:#fff;font-size:16px;flex-shrink:0;"><i class="fas fa-plus"></i></div>
+                  <div>
+                    <p style="margin:0;font-size:14px;font-weight:700;color:var(--ink);">Add Employee</p>
+                    <p style="margin:2px 0 0;color:var(--sub);font-size:11px;">Create new record</p>
+                  </div>
+                  <i class="fas fa-arrow-right" style="margin-left:auto;color:var(--green);font-size:13px;"></i>
+                </div>
+              </div>
+            </div>
+            <div class="panel" style="padding:0;overflow-x:auto;">
+              <table>
+                <thead><tr><th>ID</th><th>Name</th><th>Department</th><th>Position</th><th>Leave Bal.</th><th>Status</th><th>Action</th></tr></thead>
+                <tbody>
+                  ${filtered.length ? filtered.map(e => `
+                    <tr>
+                      <td>${e.id}</td>
+                      <td>${e.first} ${e.last}</td>
+                      <td>${e.department}</td>
+                      <td>${e.position}</td>
+                      <td><span style="font-weight:700;color:${(e.leaveBalance||0)>5?'var(--green)':'var(--red)'}">${e.leaveBalance !== undefined ? e.leaveBalance : 0}</span> <span style="font-size:11px;color:var(--sub);">days</span></td>
+                      <td><span class="pill ${e.status==='Active'?'pill-active':(e.status==='On Leave'?'pill-leave':'pill-inactive')}">${e.status}</span></td>
+                      <td>
+                        <button class="btn btn-outline btn-sm" onclick="viewEmployee('${e.id}')">View</button>
+                        <button class="btn btn-sm" style="background:#e6ecfb;color:#2c4ba3;border:none;" onclick="showAdjustBalanceModal('${e.id}')" title="Adjust Leave Balance"><i class="fas fa-wallet"></i></button>
+                      </td>
+                    </tr>
+                  `).join('') : `<tr><td colspan="7"><div class="empty-state"><i class="fas fa-user-slash"></i><p>No employees match.</p></div></td></tr>`}
+                </tbody>
+              </table>
+            </div>
+          `;
+    }
+
+    window.filterEmployees = function(val) {
+      pageEl.innerHTML = employeesPage(val);
+    };
+
+    window.viewEmployee = function(id) {
+      const e = employees.find(x => x.id === id);
+      if (!e) return;
+      openModal(`
+            <button class="modal-close" onclick="closeModal()"><i class="fas fa-times"></i></button>
+            <div style="text-align:center;margin-bottom:16px;">
+              <div class="avatar" style="width:70px;height:70px;font-size:26px;margin:0 auto 10px;"><i class="fas fa-user"></i></div>
+              <h2 style="margin:0;">${e.first} ${e.middle||''} ${e.last}</h2>
+              <p style="color:var(--sub);margin:4px 0;">${e.position} · ${e.department}</p>
+              <span class="pill ${e.status==='Active'?'pill-active':(e.status==='On Leave'?'pill-leave':'pill-inactive')}">${e.status}</span>
+            </div>
+            <div class="modal-row"><span>Employee ID</span><span>${e.id}</span></div>
+            <div class="modal-row"><span>Date of Birth</span><span>${e.dob||'-'}</span></div>
+            <div class="modal-row"><span>Gender</span><span>${e.gender||'-'}</span></div>
+            <div class="modal-row"><span>Date Hired</span><span>${e.dateHired||'-'}</span></div>
+            <div class="modal-row"><span>Type</span><span>${e.type||'Regular'}</span></div>
+            <div class="modal-row"><span>Salary Grade</span><span>${e.salary||'-'}</span></div>
+            <div class="modal-row"><span>Leave Balance</span><span>${e.leaveBalance !== undefined ? e.leaveBalance + ' day(s)' : '-'}</span></div>
+            <div class="modal-row"><span>Email</span><span>${e.email||'-'}</span></div>
+            <div class="modal-row"><span>Phone</span><span>${e.phone||'-'}</span></div>
+            ${e.resignDate ? `<div class="modal-row"><span>Resignation Date</span><span style="color:var(--red);font-weight:700;">${e.resignDate}</span></div>` : ''}
+            <div style="margin-top:18px;display:flex;gap:10px;flex-wrap:wrap;">
+              <button class="btn btn-outline" style="flex:1;min-width:100px;" onclick="closeModal()">Close</button>
+              <button class="btn btn-navy" style="flex:1;min-width:100px;" onclick="editEmployee('${e.id}')"><i class="fas fa-pen"></i> Edit</button>
+              <button class="btn btn-green" style="flex:1;min-width:100px;" onclick="showAdjustBalanceModal('${e.id}')"><i class="fas fa-wallet"></i> Balance</button>
+              ${e.status !== 'Inactive' ? `<button class="btn btn-red" style="flex:1;min-width:100px;" onclick="confirmResign('${e.id}')"><i class="fas fa-user-xmark"></i> Resign</button>` : ''}
+            </div>
+          `);
+    };
+
+    window.showAdjustBalanceModal = function(empId) {
+      const e = employees.find(x => x.id === empId);
+      if (!e) return;
+      openModal(`
+        <button class="modal-close" onclick="closeModal()"><i class="fas fa-times"></i></button>
+        <h2 style="margin-top:0;">Adjust Leave Balance</h2>
+        <div style="text-align:center;margin-bottom:16px;">
+          <div class="avatar" style="width:60px;height:60px;font-size:22px;margin:0 auto 10px;background:linear-gradient(135deg,var(--navy),var(--navy-light));color:#fff;">${e.first.charAt(0)}${e.last.charAt(0)}</div>
+          <p style="margin:0;font-weight:700;">${e.first} ${e.last}</p>
+          <p style="color:var(--sub);font-size:12px;margin:0;">${e.position} · ${e.department}</p>
+        </div>
+        <div class="field"><label>Current Balance</label><input type="text" value="${e.leaveBalance !== undefined ? e.leaveBalance : 0} days" disabled style="background:#eef0f8;color:var(--sub);" /></div>
+        <div class="field"><label>New Balance (days)</label><input id="adj_balance" type="number" value="${e.leaveBalance !== undefined ? e.leaveBalance : 15}" min="0" max="365" /></div>
+        <div style="display:flex;gap:10px;margin-top:14px;">
+          <button class="btn btn-outline" style="flex:1" onclick="closeModal()">Cancel</button>
+          <button class="btn btn-navy" style="flex:1" onclick="saveAdjustedBalance('${e.id}')"><i class="fas fa-save"></i> Save Balance</button>
+        </div>
+      `);
+    };
+
+    window.saveAdjustedBalance = async function(id) {
+      const newBal = parseInt(document.getElementById('adj_balance').value);
+      if (isNaN(newBal) || newBal < 0) { showToast('Please enter a valid number', 'fa-triangle-exclamation'); return; }
+      try {
+        await fetch(API_BASE_URL + '/employees/' + id + '/leave-balance', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ leaveBalance: newBal })
+        });
+        await reloadAndRender();
+        closeModal();
+        showToast('Leave balance updated!');
+      } catch (err) {
+        showToast('Failed to update balance', 'fa-triangle-exclamation');
+      }
+    };
+
+    window.editEmployee = function(id) {
+      const e = employees.find(x => x.id === id);
+      if (!e) return;
+      openModal(`
+            <button class="modal-close" onclick="closeModal()"><i class="fas fa-times"></i></button>
+            <h2 style="margin-top:0;">Edit Employee</h2>
+            <div class="form-grid">
+              <div class="field"><label>First Name</label><input id="e_first" type="text" value="${e.first}" /></div>
+              <div class="field"><label>Last Name</label><input id="e_last" type="text" value="${e.last}" /></div>
+              <div class="field"><label>Position</label><input id="e_position" type="text" value="${e.position}" /></div>
+              <div class="field"><label>Department</label>
+                <select id="e_department">${departments.map(d => `<option ${d.name===e.department?'selected':''}>${d.name}</option>`).join('')}</select>
+              </div>
+              <div class="field"><label>Status</label>
+                <select id="e_status">${['Active','On Leave'].map(s => `<option ${s===e.status?'selected':''}>${s}</option>`).join('')}</select>
+              </div>
+              <div class="field"><label>Salary Grade</label><input id="e_salary" type="text" value="${e.salary||''}" /></div>
+              <div class="field"><label>Leave Balance (days)</label><input id="e_leaveBalance" type="number" value="${e.leaveBalance !== undefined ? e.leaveBalance : 15}" min="0" /></div>
+              <div class="field"><label>Email</label><input id="e_email" type="email" value="${e.email||''}" /></div>
+              <div class="field"><label>Phone</label><input id="e_phone" type="text" value="${e.phone||''}" /></div>
+            </div>
+            <button class="btn btn-navy" style="width:100%;margin-top:14px;" onclick="saveEditEmployee('${e.id}')">Save Changes</button>
+          `);
+    };
+
+    window.saveEditEmployee = async function(id) {
+      const e = employees.find(x => x.id === id);
+      if (!e) return;
+      const payload = {
+        first: document.getElementById('e_first').value.trim() || e.first,
+        last: document.getElementById('e_last').value.trim() || e.last,
+        position: document.getElementById('e_position').value.trim() || e.position,
+        department: document.getElementById('e_department').value,
+        status: document.getElementById('e_status').value,
+        salary: document.getElementById('e_salary').value.trim(),
+        leaveBalance: parseInt(document.getElementById('e_leaveBalance').value) || 0,
+        email: document.getElementById('e_email').value.trim(),
+        phone: document.getElementById('e_phone').value.trim()
+      };
+      try {
+        await fetch(`${API_BASE_URL}/employees/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        await reloadAndRender();
+        closeModal();
+        showToast('Employee updated!');
+      } catch (err) {
+        showToast('Failed to update employee', 'fa-triangle-exclamation');
+      }
+    };
+
+    function departmentsPage() {
+      const academic = ['College of Arts and Sciences','College of Business and Management','College of Computer Studies','College of Education','College of Engineering','College of Hospitality Management','College of Nursing','College of Criminology'];
+      const academicDepts = departments.filter(d => academic.includes(d.name));
+      const adminDepts = departments.filter(d => !academic.includes(d.name));
+      return `
+            <h1 class="page-title">Departments & Units</h1>
+            <p class="page-sub">Benedicto College Main Campus — Academic and Administrative Departments.</p>
+            ${academicDepts.length ? `
+            <h3 style="font-size:13px;color:var(--sub);text-transform:uppercase;letter-spacing:1px;margin:0 0 14px;font-weight:700;">Academic Colleges</h3>
+            <div class="dept-grid" style="margin-bottom:28px;">
+              ${academicDepts.map(d => `
+                <div class="dept-card" onclick="viewDepartment('${d.name}')">
+                  <div class="stripe"></div>
+                  <div class="dept-body">
+                    <div class="dept-header">
+                      <div class="dept-icon-wrap"><i class="fas fa-graduation-cap"></i></div>
+                      <div style="flex:1;min-width:0;">
+                        <p class="name" style="margin:0 0 2px;">${d.name}</p>
+                        <p style="margin:0;font-size:12px;color:var(--sub);line-height:1.4;">${d.detail||''}</p>
+                      </div>
+                    </div>
+                    <div style="display:flex;align-items:baseline;gap:6px;margin-bottom:12px;">
+                      <p class="count" style="font-size:28px;margin:0;">${d.count||0}</p>
+                      <p class="label" style="margin:0;">employee${(d.count||0)===1?'':'s'}</p>
+                    </div>
+                    <div class="dept-foot">
+                      <span class="pill pill-active">${d.status||'Active'}</span>
+                      <span style="font-size:12px;color:var(--navy-light);font-weight:600;">View <i class="fas fa-arrow-right" style="font-size:10px;"></i></span>
+                    </div>
+                  </div>
+                </div>
+              `).join('')}
+            </div>` : ''}
+            ${adminDepts.length ? `
+            <h3 style="font-size:13px;color:var(--sub);text-transform:uppercase;letter-spacing:1px;margin:0 0 14px;font-weight:700;">Administrative & Support Units</h3>
+            <div class="dept-grid">
+              ${adminDepts.map(d => `
+                <div class="dept-card" onclick="viewDepartment('${d.name}')">
+                  <div class="stripe" style="background:linear-gradient(90deg,#6b7085,#9497ac);"></div>
+                  <div class="dept-body">
+                    <div class="dept-header">
+                      <div class="dept-icon-wrap" style="background:linear-gradient(135deg,#6b7085,#9497ac);"><i class="fas fa-building"></i></div>
+                      <div style="flex:1;min-width:0;">
+                        <p class="name" style="margin:0 0 2px;">${d.name}</p>
+                        <p style="margin:0;font-size:12px;color:var(--sub);line-height:1.4;">${d.detail||''}</p>
+                      </div>
+                    </div>
+                    <div style="display:flex;align-items:baseline;gap:6px;margin-bottom:12px;">
+                      <p class="count" style="font-size:28px;margin:0;color:#6b7085;">${d.count||0}</p>
+                      <p class="label" style="margin:0;">employee${(d.count||0)===1?'':'s'}</p>
+                    </div>
+                    <div class="dept-foot">
+                      <span class="pill pill-active">${d.status||'Active'}</span>
+                      <span style="font-size:12px;color:#6b7085;font-weight:600;">View <i class="fas fa-arrow-right" style="font-size:10px;"></i></span>
+                    </div>
+                  </div>
+                </div>
+              `).join('')}
+            </div>` : ''}
+          `;
+    }
+
+    window.viewDepartment = function(name) {
+      const staff = employees.filter(e => e.department === name);
+      openModal(`
+            <button class="modal-close" onclick="closeModal()"><i class="fas fa-times"></i></button>
+            <div style="display:flex;align-items:center;gap:14px;margin-bottom:6px;">
+              <div style="width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,var(--navy),var(--navy-light));display:flex;align-items:center;justify-content:center;color:#fff;font-size:18px;"><i class="fas fa-building"></i></div>
+              <div>
+                <h2 style="margin:0;font-size:20px;">${name}</h2>
+                <p style="color:var(--sub);margin:2px 0 0;font-size:13px;">${staff.length} employee${staff.length===1?'':'s'} · ${departments.find(d=>d.name===name)?.detail||''}</p>
+              </div>
+            </div>
+            <div style="margin-top:18px;background:#fafafe;border-radius:12px;padding:4px 0;">
+              ${staff.length ? staff.map((e, i) => `
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid #f2f3f8;${i===staff.length-1?'border-bottom:none;':''}">
+                  <div style="display:flex;align-items:center;gap:12px;">
+                    <div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#e7e9f2,#f2f3f8);display:flex;align-items:center;justify-content:center;color:var(--navy);font-size:13px;font-weight:700;">${e.first.charAt(0)}${e.last.charAt(0)}</div>
+                    <div>
+                      <div style="font-weight:700;font-size:13.5px;color:var(--ink);">${e.first} ${e.last}</div>
+                      <div style="font-size:12px;color:var(--sub);">${e.position}</div>
+                    </div>
+                  </div>
+                  <span class="pill ${e.status==='Active'?'pill-active':(e.status==='On Leave'?'pill-leave':'pill-inactive')}" style="flex-shrink:0;">${e.status}</span>
+                </div>
+              `).join('') : '<div class="empty-state" style="padding:40px 20px;"><i class="fas fa-user-slash" style="font-size:32px;color:#c9cce0;margin-bottom:10px;"></i><p style="color:var(--sub);margin:0;">No employees assigned to this department.</p></div>'}
+            </div>
+            <div style="display:flex;gap:10px;margin-top:18px;">
+              <button class="btn btn-outline" style="flex:1" onclick="closeModal()">Close</button>
+              <button class="btn btn-navy" style="flex:1" onclick="printDepartment('${name}')"><i class="fas fa-print"></i> Print / PDF</button>
+            </div>
+          `);
+    };
+
+    window.printDepartment = function(name) {
+      const staff = employees.filter(e => e.department === name);
+      const today = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+      const printWindow = window.open('', '_blank');
+      const rows = staff.length ? staff.map((e, i) => `
+        <tr>
+          <td style="border:1px solid #ccc;padding:8px 12px;text-align:center;">${i + 1}</td>
+          <td style="border:1px solid #ccc;padding:8px 12px;">${e.last}, ${e.first} ${e.middle || ''}</td>
+          <td style="border:1px solid #ccc;padding:8px 12px;">${e.position}</td>
+          <td style="border:1px solid #ccc;padding:8px 12px;">${e.department}</td>
+          <td style="border:1px solid #ccc;padding:8px 12px;text-align:center;">${e.status || 'Active'}</td>
+        </tr>
+      `).join('') : '';
+      printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>${name} - Department Roster</title>
+          <style>
+            @page { size: A4; margin: 15mm; }
+            body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 30px; color: #171a2b; }
+            .header { text-align: center; margin-bottom: 24px; }
+            .header img { width: 60px; height: 60px; border-radius: 50%; margin-bottom: 8px; }
+            .header h1 { margin: 0; font-size: 20px; color: #0d1642; }
+            .header h2 { margin: 4px 0 0; font-size: 16px; color: #1b2a70; font-weight: 600; }
+            .header p { margin: 6px 0 0; font-size: 12px; color: #6b7085; }
+            .meta { display: flex; justify-content: space-between; font-size: 12px; color: #6b7085; margin-bottom: 14px; }
+            table { width: 100%; border-collapse: collapse; font-size: 13px; }
+            th { background: #0d1642; color: #fff; padding: 10px 12px; text-align: left; font-weight: 600; }
+            th:first-child { text-align: center; width: 50px; }
+            th:last-child { text-align: center; width: 100px; }
+            td { border: 1px solid #ccc; padding: 8px 12px; }
+            .footer { margin-top: 30px; font-size: 11px; color: #6b7085; text-align: center; border-top: 1px solid #e7e9f2; padding-top: 10px; }
+            @media print { .no-print { display: none; } }
+        
+      </style>
+        </head>
+        <body>
+          <div class="header">
+            <img src="https://www.image2url.com/r2/default/images/1785224447454-1ba63284-34be-4f69-a1e9-4249c7625d41.png" alt="Benedicto College" />
+            <h1>BENEDICTO COLLEGE</h1>
+            <h2>Department Roster — ${name}</h2>
+            <p>HR Management System</p>
+          </div>
+          <div class="meta">
+            <span>Total Employees: <strong>${staff.length}</strong></span>
+            <span>Generated: ${today}</span>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Employee Name</th>
+                <th>Position</th>
+                <th>Department</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows || '<tr><td colspan="5" style="text-align:center;padding:20px;">No employees assigned.</td></tr>'}
+            </tbody>
+          </table>
+          <div class="footer">
+            This document is generated from the Benedicto College HR Management System.<br>
+            For inquiries, contact the HR Office.
+          </div>
+          <div class="no-print" style="text-align:center;margin-top:20px;">
+            <button onclick="window.print()" style="padding:10px 24px;border:none;border-radius:8px;background:#0d1642;color:#fff;font-size:14px;font-weight:700;cursor:pointer;">Print / Save as PDF</button>
+          </div>
+          <script>setTimeout(() => { window.print(); }, 400);<\/script>
+        </body>
+        </html>
+      `);
+      printWindow.document.close();
+    };
+
+    function attendancePage() {
+      const date = todayStr();
+      const todays = attendanceLogs.filter(l => l.date === date);
+      const present = todays.filter(l => l.status === 'Present').length;
+      const late = todays.filter(l => l.status === 'Late').length;
+      const onLeave = employees.filter(e => e.status === 'On Leave').length;
+      return `
+            <h1 class="page-title">Attendance</h1>
+            <p class="page-sub">Daily attendance log for ${new Date().toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'})}</p>
+            <div class="grid-stats">
+              ${statCard('<i class="fas fa-circle-check"></i>','#3aa65b','Present',present,'View list',"showAttendanceList('Present')")}
+              ${statCard('<i class="fas fa-clock"></i>','#e2a63b','Late',late,'View list',"showAttendanceList('Late')")}
+              ${statCard('<i class="fas fa-circle-xmark"></i>','#e0473c','Absent / On Leave',onLeave,'View list',"showAttendanceList('OnLeave')")}
+            </div>
+            <div class="panel" style="padding:0;overflow-x:auto;">
+              <div style="padding:16px 20px;display:flex;justify-content:space-between;align-items:center;">
+                <h3 style="margin:0;">Today's Log</h3>
+                <button class="btn btn-outline btn-sm" onclick="exportAttendanceCSV()"><i class="fas fa-download"></i> Export</button>
+              </div>
+              <table>
+                <thead><tr><th>Employee</th><th>Department</th><th>Time In</th><th>Time Out</th><th>Status</th></tr></thead>
+                <tbody>
+                  ${todays.length ? todays.map(l => `
+                    <tr>
+                      <td>${l.name}</td>
+                      <td>${l.department}</td>
+                      <td>${l.timeIn || '-'}</td>
+                      <td>${l.timeOut || '-'}</td>
+                      <td><span class="pill ${l.status==='Present'?'pill-active':(l.status==='Late'?'pill-leave':'pill-inactive')}">${l.status}</span></td>
+                    </tr>
+                  `).join('') : `<tr><td colspan="5"><div class="empty-state"><i class="fas fa-fingerprint"></i><p>No scans recorded yet today.</p></div></td></tr>`}
+                </tbody>
+              </table>
+            </div>
+          `;
+    }
+
+    window.testDeviceConnection = function() {
+      showToast('Connecting to device…', 'fa-plug');
+      setTimeout(() => {
+        biometricDevice.connected = true;
+        biometricDevice.lastSync = formatTime(new Date());
+        showToast('Device connected successfully');
+        renderPage();
+      }, 900);
+    };
+
+    window.simulateFingerprintScan = function() {
+      openModal(`
+            <button class="modal-close" onclick="closeModal()"><i class="fas fa-times"></i></button>
+            <div style="text-align:center;padding:10px 0;">
+              <div style="font-size:54px;color:var(--navy-light);margin-bottom:16px;"><i class="fas fa-fingerprint fa-beat"></i></div>
+              <h3 style="margin:0 0 6px;">Place finger on scanner…</h3>
+              <p style="color:var(--sub);font-size:13px;">Simulated ${biometricDevice.model}</p>
+              <select id="scan_emp" style="margin-top:16px;width:100%;padding:10px;border-radius:10px;border:1px solid var(--line);font-family:inherit;font-size:13.5px;">
+                ${employees.map(e => `<option value="${e.id}">${e.first} ${e.last} (${e.id})</option>`).join('')}
+              </select>
+              <button class="btn btn-navy" style="width:100%;margin-top:14px;" onclick="processScan()">Scan Fingerprint</button>
+            </div>
+          `);
+    };
+
+    window.processScan = async function() {
+      const id = document.getElementById('scan_emp').value;
+      modalBody.innerHTML = `<div style="text-align:center;padding:26px 0;"><i class="fas fa-circle-notch fa-spin" style="font-size:40px;color:var(--navy-light);"></i><p style="margin-top:14px;color:var(--sub);">Matching fingerprint…</p></div>`;
+      try {
+        const res = await fetch(`${API_BASE_URL}/attendance/scan`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ employeeId: id })
+        });
+        const result = await res.json();
+        await reloadAndRender();
+        modalBody.innerHTML = `
+              <div style="text-align:center;">
+                <div class="success-tick"><i class="fas fa-check"></i></div>
+                <h2 style="margin:0 0 6px;">${result.action}</h2>
+                <p style="color:var(--sub);margin:0 0 20px;">${result.name} — ${result.time}</p>
+                <button class="btn btn-navy" style="width:100%;" onclick="closeModal()">Done</button>
+              </div>
+            `;
+      } catch (err) {
+        showToast('Scan failed', 'fa-triangle-exclamation');
+        closeModal();
+      }
+    };
+
+    window.exportAttendanceCSV = function() {
+      const date = todayStr();
+      const rows = attendanceLogs.filter(l => l.date === date);
+      let csv = 'Employee,Department,Time In,Time Out,Status\n';
+      rows.forEach(l => { csv += `"${l.name}","${l.department}","${l.timeIn || ''}","${l.timeOut || ''}","${l.status}"\n`; });
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `attendance_${date}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showToast('Attendance exported');
+    };
+
+    window.showAttendanceList = function(type) {
+      const date = todayStr();
+      let title, rows;
+      if (type === 'OnLeave') {
+        title = 'Absent / On Leave';
+        rows = employees.filter(e => e.status === 'On Leave').map(e => `<div class="modal-row"><span>${e.first} ${e.last}</span><span>${e.department}</span></div>`).join('');
+      } else {
+        title = type;
+        rows = attendanceLogs.filter(l => l.date === date && l.status === type).map(l => `<div class="modal-row"><span>${l.name}</span><span>${l.timeIn || '-'}</span></div>`).join('');
+      }
+      openModal(`
+            <button class="modal-close" onclick="closeModal()"><i class="fas fa-times"></i></button>
+            <h2 style="margin-top:0;">${title}</h2>
+            ${rows || '<div class="empty-state"><i class="fas fa-user-slash"></i><p>No records.</p></div>'}
+            <button class="btn btn-navy" style="width:100%;margin-top:14px;" onclick="closeModal()">Close</button>
+          `);
+    };
+
+    function leavePage() {
+      return `
+            <h1 class="page-title">Leave Requests</h1>
+            <p class="page-sub">Review and act on pending leave requests. Leave balance is shown for reference.</p>
+            <div class="panel" style="padding:0;overflow-x:auto;">
+              <table>
+                <thead><tr><th>Employee</th><th>Department</th><th>Type</th><th>Dates</th><th>Days</th><th>Leave Bal.</th><th>Reason</th><th>Status</th><th>Action</th></tr></thead>
+                <tbody>
+                  ${leaveRequests.map(l => {
+                    const emp = employees.find(e => e.email === l.email);
+                    const bal = emp?.leaveBalance !== undefined ? emp.leaveBalance : 0;
+                    const balColor = bal > 3 ? 'var(--green)' : 'var(--red)';
+                    return `
+                    <tr>
+                      <td>${l.name}</td>
+                      <td>${l.dept}</td>
+                      <td>${l.type}</td>
+                      <td>${l.dates}</td>
+                      <td>${l.daysRequested || 1}</td>
+                      <td><span style="font-weight:700;color:${balColor};">${bal}</span> <span style="font-size:11px;color:var(--sub);">days</span></td>
+                      <td>${l.reason || '-'}</td>
+                      <td><span class="pill ${l.status==='Pending'?'pill-pending':(l.status==='Approved'?'pill-approved':'pill-rejected')}">${l.status}</span></td>
+                      <td>
+                        ${l.status==='Pending' ? `
+                          <button class="btn btn-green btn-sm" onclick="actLeave('${l._id}','Approved')">Approve</button>
+                          <button class="btn btn-red btn-sm" onclick="actLeave('${l._id}','Rejected')">Reject</button>
+                        ` : '<span style="color:var(--sub);font-size:12px;">Done</span>'}
+                      </td>
+                    </tr>
+                  `}).join('')}
+                </tbody>
+              </table>
+            </div>
+          `;
+    }
+
+    window.actLeave = async function(id, status) {
+      try {
+        await fetch(`${API_BASE_URL}/leave-requests/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status })
+        });
+        showToast(`Leave request ${status.toLowerCase()}`, status === 'Approved' ? 'fa-check-circle' : 'fa-times-circle');
+        await reloadAndRender();
+      } catch (err) {
+        showToast('Failed to update leave request', 'fa-triangle-exclamation');
+      }
+    };
+
+    function adminComplaintsPage() {
+      const pending = complaints.filter(c => c.status === 'Pending');
+      const resolved = complaints.filter(c => c.status === 'Approved' || c.status === 'Rejected');
+      const display = complaintFilter === 'pending' ? pending : resolved;
+      const pendingCount = pending.length;
+      const resolvedCount = resolved.length;
+
+      return `
+            <h1 class="page-title">Complaints & Requests</h1>
+            <p class="page-sub">Review and respond to employee complaints and requests.</p>
+            <div class="complaint-tabs">
+              <div class="complaint-tab ${complaintFilter==='pending'?'active':''}" onclick="setComplaintFilter('pending')">
+                <i class="fas fa-triangle-exclamation tab-icon" style="color:${complaintFilter==='pending'?'#fff':'var(--red)'};"></i>
+                <span>Pending</span>
+                ${pendingCount > 0 ? `<span class="tab-badge">${pendingCount}</span>` : ''}
+              </div>
+              <div class="complaint-tab ${complaintFilter==='resolved'?'active':''}" onclick="setComplaintFilter('resolved')">
+                <i class="fas fa-circle-check tab-icon" style="color:${complaintFilter==='resolved'?'#fff':'var(--green)'};"></i>
+                <span>Resolved</span>
+                ${resolvedCount > 0 ? `<span style="font-size:11px;color:var(--sub);font-weight:700;background:#f2f3f8;padding:2px 8px;border-radius:20px;">${resolvedCount}</span>` : ''}
+              </div>
+            </div>
+            <div class="panel">
+              ${display.length ? display.map((c, i) => `
+                <div class="complaint-row" style="${i===display.length-1?'border-bottom:none;':''}">
+                  <div style="flex:1;min-width:0;">
+                    <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;flex-wrap:wrap;">
+                      <p style="margin:0;font-weight:700;font-size:14px;">${c.subject}</p>
+                      <span class="prio prio-${(c.priority||'medium').toLowerCase()}">${c.priority||'Medium'}</span>
+                    </div>
+                    <div style="font-size:12px;color:var(--sub);margin-bottom:8px;">
+                      <i class="fas fa-user" style="font-size:10px;margin-right:4px;"></i>${c.employee}
+                      <span style="margin:0 8px;color:#ddd;">|</span>
+                      <i class="fas fa-calendar" style="font-size:10px;margin-right:4px;"></i>${c.date||'No date'}
+                    </div>
+                    ${c.reply ? `<div class="reply-box"><div class="reply-label"><i class="fas fa-reply" style="margin-right:4px;"></i>HR Reply</div>${c.reply}</div>` : `
+                      <div style="display:flex;gap:8px;">
+                        <input type="text" id="reply_${c._id}" placeholder="Type your reply…" style="flex:1;padding:9px 12px;border-radius:10px;border:1px solid var(--line);font-size:13px;font-family:inherit;background:#f6f7fb;" />
+                        <button class="btn btn-navy btn-sm" onclick="replyComplaint('${c._id}')">Reply</button>
+                      </div>
+                    `}
+                  </div>
+                  <div style="display:flex;flex-direction:column;gap:8px;align-items:flex-end;flex-shrink:0;margin-left:12px;">
+                    <span class="pill ${c.status==='Pending'?'pill-pending':(c.status==='Approved'?'pill-approved':'pill-rejected')}" style="font-size:11px;">${c.status}</span>
+                    ${c.status === 'Pending' ? `
+                      <div style="display:flex;gap:6px;">
+                        <button class="btn btn-green btn-sm" onclick="setComplaintStatus('${c._id}', 'Approved')" title="Approve"><i class="fas fa-check"></i></button>
+                        <button class="btn btn-red btn-sm" onclick="setComplaintStatus('${c._id}', 'Rejected')" title="Reject"><i class="fas fa-times"></i></button>
+                      </div>
+                    ` : ''}
+                  </div>
+                </div>
+              `).join('') : `<div class="empty-state" style="padding:50px 20px;">
+                <i class="fas ${complaintFilter==='pending'?'fa-inbox':'fa-clipboard-check'}" style="font-size:40px;color:#c9cce0;margin-bottom:14px;"></i>
+                <p style="color:var(--sub);margin:0;font-weight:600;">${complaintFilter==='pending'?'No pending complaints. Great job!':'No resolved complaints yet.'}</p>
+              </div>`}
+            </div>
+          `;
+    }
+
+    window.replyComplaint = async function(id) {
+      const el = document.getElementById('reply_' + id);
+      const val = el ? el.value.trim() : '';
+      if (!val) { showToast('Please type a reply', 'fa-triangle-exclamation'); return; }
+      try {
+        await fetch(`${API_BASE_URL}/complaints/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ reply: val })
+        });
+        showToast('Reply sent to employee');
+        await reloadAndRender();
+      } catch (err) {
+        showToast('Failed to send reply', 'fa-triangle-exclamation');
+      }
+    };
+
+    window.setComplaintFilter = function(filter) {
+      complaintFilter = filter;
+      renderPage();
+    };
+
+    window.setComplaintStatus = async function(id, status) {
+      try {
+        await fetch(`${API_BASE_URL}/complaints/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status })
+        });
+        showToast('Status updated to ' + status);
+        await reloadAndRender();
+      } catch (err) {
+        showToast('Failed to update status', 'fa-triangle-exclamation');
+      }
+    };
+
+    function addEmployeePage() {
+      return `
+            <div class="panel">
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;">
+                <div>
+                  <h1 class="page-title" style="display:flex;align-items:center;gap:10px;"><i class="fas fa-plus" style="font-size:18px;"></i> Add New Employee</h1>
+                  <p class="page-sub" style="margin-bottom:0;">Enter employee details manually.</p>
+                </div>
+                <div style="display:flex;gap:10px;">
+                  <button class="btn btn-outline" onclick="goTo('employees')">Cancel</button>
+                  <button class="btn btn-navy" onclick="saveEmployee()">Save Employee</button>
+                </div>
+              </div>
+              <div class="form-section">
+                <h3>Personal Information</h3>
+                <div class="form-grid">
+                  <div class="field"><label>First Name</label><input id="f_first" type="text" /></div>
+                  <div class="field"><label>Middle Name</label><input id="f_middle" type="text" /></div>
+                  <div class="field"><label>Last Name</label><input id="f_last" type="text" /></div>
+                  <div class="field"><label>Employee ID</label><input id="f_id" type="text" placeholder="BC-2028-0##" /></div>
+                  <div class="field"><label>Date of Birth</label><input id="f_dob" type="date" /></div>
+                  <div class="field"><label>Gender</label>
+                    <select id="f_gender"><option>Female</option><option>Male</option><option>Prefer not to say</option></select>
+                  </div>
+                </div>
+              </div>
+              <div class="form-section">
+                <h3>Employment</h3>
+                <div class="form-grid">
+                  <div class="field"><label>Position</label><input id="f_position" type="text" /></div>
+                  <div class="field"><label>Department</label>
+                    <select id="f_department">${departments.map(d=>`<option>${d.name}</option>`).join('')}</select>
+                  </div>
+                  <div class="field"><label>Salary Grade</label><input id="f_salary" type="text" placeholder="SG-##" /></div>
+                  <div class="field"><label>Date Hired</label><input id="f_hired" type="date" /></div>
+                  <div class="field"><label>Type</label>
+                    <select id="f_type"><option>Regular</option><option>Contractual</option><option>Part-Time</option></select>
+                  </div>
+                  <div class="field"><label>Status</label>
+                    <select id="f_status"><option>Active</option><option>On Leave</option></select>
+                  </div>
+                  <div class="field"><label>Leave Balance (days)</label><input id="f_leaveBalance" type="number" value="15" min="0" /></div>
+                </div>
+              </div>
+              <div class="form-section">
+                <h3>Contact</h3>
+                <div class="form-grid">
+                  <div class="field"><label>Email</label><input id="f_email" type="email" /></div>
+                  <div class="field"><label>Phone</label><input id="f_phone" type="text" placeholder="09##-###-####" /></div>
+                </div>
+              </div>
+            </div>
+          `;
+    }
+
+    window.saveEmployee = async function() {
+      const first = document.getElementById('f_first').value.trim();
+      const last = document.getElementById('f_last').value.trim();
+      const position = document.getElementById('f_position').value.trim();
+      if (!first || !last || !position) {
+        showToast('Please fill in first name, last name, and position', 'fa-triangle-exclamation');
+        return;
+      }
+      const id = document.getElementById('f_id').value.trim() || ('BC-2028-' + String(employees.length + 1).padStart(3, '0'));
+      const dept = document.getElementById('f_department').value;
+      const newEmp = {
+        id, first,
+        middle: document.getElementById('f_middle').value.trim(),
+        last,
+        dob: document.getElementById('f_dob').value || '-',
+        gender: document.getElementById('f_gender').value,
+        position,
+        department: dept,
+        dateHired: document.getElementById('f_hired').value || new Date().toISOString().slice(0, 10),
+        salary: document.getElementById('f_salary').value.trim() || 'SG-1',
+        status: document.getElementById('f_status').value,
+        type: document.getElementById('f_type').value,
+        leaveBalance: parseInt(document.getElementById('f_leaveBalance').value) || 15,
+        email: document.getElementById('f_email').value.trim() || '-',
+        phone: document.getElementById('f_phone').value.trim() || '-',
+      };
+      try {
+        await fetch(`${API_BASE_URL}/employees`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(newEmp)
+        });
+        await reloadAndRender();
+        openModal(`
+              <div style="text-align:center;">
+                <div class="success-tick"><i class="fas fa-check"></i></div>
+                <h2 style="margin:0 0 6px;">Employee Added!</h2>
+                <p style="color:var(--sub);margin:0 0 20px;">${first} ${last} has been added to ${dept}.</p>
+                <button class="btn btn-navy" style="width:100%;" onclick="closeModal(); goTo('employees');">View Employees</button>
+              </div>
+            `);
+      } catch (err) {
+        showToast('Failed to add employee', 'fa-triangle-exclamation');
+      }
+    };
+
+    function archivePage() {
+      return `
+            <h1 class="page-title">Separated Employees</h1>
+            <p class="page-sub">Records of separated or resigned employees with full details.</p>
+            <div class="panel" style="padding:0;overflow-x:auto;">
+              <table>
+                <thead><tr><th>ID</th><th>Name</th><th>Department</th><th>Position</th><th>Date Hired</th><th>Resign Date</th><th>Status</th><th>Action</th></tr></thead>
+                <tbody>
+                  ${separated.length ? separated.map(e => `
+                    <tr>
+                      <td>${e.id}</td>
+                      <td>${e.first} ${e.last}</td>
+                      <td>${e.department}</td>
+                      <td>${e.position}</td>
+                      <td>${e.dateHired || '-'}</td>
+                      <td>${e.resignDate || '-'}</td>
+                      <td><span class="pill pill-inactive">${e.status}</span></td>
+                      <td><button class="btn btn-outline btn-sm" onclick="viewSeparatedEmployee('${e.id}')">View</button></td>
+                    </tr>
+                  `).join('') : `<tr><td colspan="8"><div class="empty-state"><i class="fas fa-folder-open"></i><p>No separated employees.</p></div></td></tr>`}
+                </tbody>
+              </table>
+            </div>
+          `;
+    }
+
+    function announcementsPage(isAdmin) {
+      return `
+            <h1 class="page-title">Announcements</h1>
+            <p class="page-sub">${isAdmin ? 'Post and manage announcements for all staff.' : 'Latest updates from HR and administration.'}</p>
+            ${isAdmin ? `<button class="btn btn-navy" style="margin-bottom:16px;" onclick="showNewAnnouncementModal()"><i class="fas fa-plus"></i> New Announcement</button>` : ''}
+            <div class="panel">
+              ${announcements.length ? announcements.map(a => `
+                <div class="activity-row">
+                  <div class="activity-ic" style="background:${a.bg||'#e6ecfb'};color:${a.color||'#2c4ba3'}"><i class="fas ${a.icon||'fa-bullhorn'}"></i></div>
+                  <div><p>${a.title}</p><span>${a.meta||''} · ${a.when||''}</span></div>
+                </div>
+              `).join('') : '<div class="empty-state"><i class="fas fa-bullhorn"></i><p>No announcements yet.</p></div>'}
+            </div>
+          `;
+    }
+
+    window.showNewAnnouncementModal = function() {
+      openModal(`
+            <button class="modal-close" onclick="closeModal()"><i class="fas fa-times"></i></button>
+            <h2 style="margin-top:0;">New Announcement</h2>
+            <div class="field"><label>Title</label><input id="ann_title" type="text" /></div>
+            <div class="field"><label>Content / Meta</label><input id="ann_meta" type="text" placeholder="e.g. June 10, 2026 - 14:00 PM" /></div>
+            <button class="btn btn-navy" style="width:100%;margin-top:12px;" onclick="postAnnouncement()">Post</button>
+          `);
+    };
+
+    window.postAnnouncement = async function() {
+      const title = document.getElementById('ann_title').value.trim();
+      const meta = document.getElementById('ann_meta').value.trim();
+      if (!title) { showToast('Please enter a title', 'fa-triangle-exclamation'); return; }
+      try {
+        await fetch(`${API_BASE_URL}/announcements`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title, meta, when: 'just now', icon: 'fa-bullhorn', color: '#2c4ba3', bg: '#e6ecfb' })
+        });
+        await reloadAndRender();
+        closeModal();
+        showToast('Announcement posted!');
+      } catch (err) {
+        showToast('Failed to post announcement', 'fa-triangle-exclamation');
+      }
+    };
+
+    function getCurrentEmployee() {
+      return employees.find(e => e.email === currentUser?.email) || employees[0];
+    }
+
+    function employeeDashboard() {
+      const e = getCurrentEmployee();
+      if (!e) return `<div class="panel"><div class="empty-state"><i class="fas fa-user-slash"></i><p>Employee record not found.</p></div></div>`;
+      return `
+            <h1 class="page-title">Welcome back, ${e.first}!</h1>
+            <p class="page-sub">Your employment overview.</p>
+            <div class="info-cards">
+              <div class="info-card">
+                <div class="icon-wrap">
+                  <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                </div>
+                <div class="value">${e.id}</div>
+                <div class="label">Employee ID</div>
+              </div>
+              <div class="info-card">
+                <div class="icon-wrap">
+                  <svg viewBox="0 0 24 24"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/><line x1="8" y1="6" x2="8.01" y2="6"/><line x1="12" y1="6" x2="12.01" y2="6"/><line x1="16" y1="6" x2="16.01" y2="6"/><line x1="8" y1="10" x2="8.01" y2="10"/><line x1="12" y1="10" x2="12.01" y2="10"/><line x1="16" y1="10" x2="16.01" y2="10"/><line x1="8" y1="14" x2="8.01" y2="14"/><line x1="12" y1="14" x2="12.01" y2="14"/><line x1="16" y1="14" x2="16.01" y2="14"/></svg>
+                </div>
+                <div class="value">${e.department}</div>
+                <div class="label">Department</div>
+              </div>
+              <div class="info-card">
+                <div class="icon-wrap">
+                  <svg viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                </div>
+                <div class="value">${e.position}</div>
+                <div class="label">Position</div>
+              </div>
+              <div class="info-card">
+                <div class="icon-wrap">
+                  <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><circle cx="12" cy="15" r="2"/><path d="M12 13v-2"/></svg>
+                </div>
+                <div class="value">${e.dateHired || '-'}</div>
+                <div class="label">Date Hired</div>
+              </div>
+              <div class="info-card">
+                <div class="icon-wrap">
+                  <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                </div>
+                <div class="value">${e.leaveBalance !== undefined ? e.leaveBalance : 0}</div>
+                <div class="label">Leave Balance</div>
+              </div>
+            </div>
+            <div class="two-col">
+              <div class="panel">
+                <div class="panel-head"><h3>Quick Actions</h3></div>
+                <div class="qa-btn" onclick="goTo('complaints')"><i class="fas fa-file-alt"></i> File a Complaint / Request</div>
+                <div class="qa-btn" onclick="goTo('attendance')"><i class="fas fa-clock"></i> Time In / Out</div>
+                <div class="qa-btn" onclick="goTo('leave')"><i class="fas fa-calendar-plus"></i> File Leave Request</div>
+                <div class="panel-head" style="margin-top:8px;"><h3>Recent Activity</h3></div>
+                ${activities.slice(0,3).map(a => `
+                  <div class="activity-row">
+                    <div class="activity-ic"><i class="fas ${a.icon}"></i></div>
+                    <div><p>${a.text}</p><span>${a.when}</span></div>
+                  </div>
+                `).join('') || '<div class="activity-row"><div><p>No recent activity</p></div></div>'}
+              </div>
+              <div class="panel">
+                <div class="panel-head"><h3>Recent Announcements</h3><span class="view-all" onclick="goTo('announcements')">View all</span></div>
+                ${announcements.slice(0,5).map(a => `
+                  <div class="activity-row">
+                    <div class="activity-ic" style="background:${a.bg||'#e6ecfb'};color:${a.color||'#2c4ba3'}"><i class="fas ${a.icon||'fa-bullhorn'}"></i></div>
+                    <div><p>${a.title}</p><span>${a.meta||''} · ${a.when||''}</span></div>
+                  </div>
+                `).join('') || '<div class="empty-state" style="padding:30px 0;"><i class="fas fa-bullhorn"></i><p>No announcements yet.</p></div>'}
+              </div>
+            </div>
+          `;
+    }
+
+    function profilePage() {
+      goTo('employment');
+    }
+
+    window.openEditProfileModal = function() {
+      closeUserDropdown();
+      const e = getCurrentEmployee();
+      if (!e) { showToast('Employee record not found', 'fa-triangle-exclamation'); return; }
+      openModal(`
+        <button class="modal-close" onclick="closeModal()"><i class="fas fa-times"></i></button>
+        <div style="text-align:center;margin-bottom:18px;">
+          <div class="avatar" style="width:70px;height:70px;font-size:26px;margin:0 auto 10px;background:linear-gradient(135deg, var(--navy), var(--navy-light));color:#fff;">${e.first.charAt(0)}${e.last.charAt(0)}</div>
+          <h2 style="margin:0;">Edit Profile</h2>
+          <p style="color:var(--sub);margin:4px 0;font-size:13px;">Update your personal information</p>
+        </div>
+        <div class="form-grid" style="grid-template-columns:1fr 1fr;">
+          <div class="field"><label>First Name</label><input id="ep_first" type="text" value="${e.first}" /></div>
+          <div class="field"><label>Last Name</label><input id="ep_last" type="text" value="${e.last}" /></div>
+          <div class="field"><label>Middle Name</label><input id="ep_middle" type="text" value="${e.middle||''}" /></div>
+          <div class="field"><label>Date of Birth</label><input id="ep_dob" type="date" value="${e.dob||''}" /></div>
+          <div class="field"><label>Gender</label>
+            <select id="ep_gender">
+              <option ${e.gender==='Female'?'selected':''}>Female</option>
+              <option ${e.gender==='Male'?'selected':''}>Male</option>
+              <option ${e.gender==='Prefer not to say'?'selected':''}>Prefer not to say</option>
+            </select>
+          </div>
+          <div class="field"><label>Civil Status</label>
+            <select id="ep_civil"><option>Single</option><option>Married</option><option>Widowed</option></select>
+          </div>
+        </div>
+        <div class="field" style="margin-top:14px;"><label>Email Address</label><input id="ep_email" type="email" value="${e.email||''}" /></div>
+        <div class="field"><label>Phone Number</label><input id="ep_phone" type="text" value="${e.phone||''}" /></div>
+        <div class="field"><label>Home Address</label><input id="ep_address" type="text" placeholder="Enter your home address" /></div>
+        <div style="display:flex;gap:10px;margin-top:18px;">
+          <button class="btn btn-outline" style="flex:1" onclick="closeModal()">Cancel</button>
+          <button class="btn btn-navy" style="flex:1" onclick="saveProfileChanges('${e.id}')"><i class="fas fa-save"></i> Save Changes</button>
+        </div>
+      `);
+    };
+
+    window.saveProfileChanges = async function(id) {
+      const payload = {
+        first: document.getElementById('ep_first').value.trim(),
+        last: document.getElementById('ep_last').value.trim(),
+        middle: document.getElementById('ep_middle').value.trim(),
+        dob: document.getElementById('ep_dob').value,
+        gender: document.getElementById('ep_gender').value,
+        email: document.getElementById('ep_email').value.trim(),
+        phone: document.getElementById('ep_phone').value.trim()
+      };
+      if (!payload.first || !payload.last) {
+        showToast('First and last name are required', 'fa-triangle-exclamation');
+        return;
+      }
+      try {
+        await fetch(`${API_BASE_URL}/employees/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        await reloadAndRender();
+        closeModal();
+        showToast('Profile updated successfully!');
+      } catch (err) {
+        showToast('Failed to update profile', 'fa-triangle-exclamation');
+      }
+    };
+
+    window.toggleUserDropdown = function(e) {
+      e.stopPropagation();
+      document.getElementById('userDropdown').classList.toggle('open');
+      document.getElementById('userDropdownMenu').classList.toggle('show');
+    };
+    window.closeUserDropdown = function() {
+      document.getElementById('userDropdown').classList.remove('open');
+      document.getElementById('userDropdownMenu').classList.remove('show');
+    };
+    document.addEventListener('click', function(e) {
+      if (!e.target.closest('.user-dropdown')) closeUserDropdown();
+    });
+
+    window.showUpdateRequestModal = function() {
+      openModal(`
+            <button class="modal-close" onclick="closeModal()"><i class="fas fa-times"></i></button>
+            <h2 style="margin-top:0;">Request Info Update</h2>
+            <div class="field"><label>What would you like updated?</label><input id="upd_detail" type="text" placeholder="e.g. Update phone number to 0917-000-0000" /></div>
+            <button class="btn btn-navy" style="width:100%;margin-top:12px;" onclick="submitUpdateRequest()">Send to HR</button>
+          `);
+    };
+
+    window.submitUpdateRequest = async function() {
+      const detail = document.getElementById('upd_detail').value.trim();
+      if (!detail) { showToast('Please describe the update needed', 'fa-triangle-exclamation'); return; }
+      try {
+        await fetch(`${API_BASE_URL}/complaints`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            subject: 'Profile Update: ' + detail,
+            priority: 'Low',
+            status: 'Pending',
+            date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+            employee: currentUser.email
+          })
+        });
+        await reloadAndRender();
+        closeModal();
+        showToast('Update request sent to HR');
+      } catch (err) {
+        showToast('Failed to send request', 'fa-triangle-exclamation');
+      }
+    };
+
+    function employmentInfoPage() {
+      const e = getCurrentEmployee();
+      if (!e) return `<div class="panel"><div class="empty-state"><i class="fas fa-briefcase"></i><p>Employment info not found.</p></div></div>`;
+      return `
+            <h1 class="page-title">Employment Information</h1>
+            <p class="page-sub">View and manage your employment details.</p>
+            <div class="emp-info-grid">
+              <div class="profile-sidebar-card">
+                <div class="profile-avatar-lg">${e.first.charAt(0)}${e.last.charAt(0)}</div>
+                <h3>${e.first} ${e.middle||''} ${e.last}</h3>
+                <div class="role-badge">${e.position}</div>
+                <div class="profile-meta">
+                  <div class="profile-meta-item"><i class="fas fa-id-badge"></i><span>Employee ID</span><strong>${e.id}</strong></div>
+                  <div class="profile-meta-item"><i class="fas fa-building"></i><span>Department</span><strong>${e.department}</strong></div>
+                  <div class="profile-meta-item"><i class="fas fa-map-marker-alt"></i><span>Campus</span><strong>Main</strong></div>
+                  <div class="profile-meta-item"><i class="fas fa-calendar"></i><span>Date Hired</span><strong>${e.dateHired||'-'}</strong></div>
+                  <div class="profile-meta-item"><i class="fas fa-user-tie"></i><span>Employment Status</span><strong>${e.status}</strong></div>
+                  <div class="profile-meta-item"><i class="fas fa-envelope"></i><span>Email</span><strong>${e.email||'-'}</strong></div>
+                </div>
+              </div>
+              <div class="info-sections">
+                <div class="info-section">
+                  <div class="section-title">Personal Information</div>
+                  <div class="info-row">
+                    <div class="info-field"><label>Full Name</label><div class="value-box">${e.first} ${e.middle||''} ${e.last}</div></div>
+                    <div class="info-field"><label>Date of Birth</label><div class="value-box">${e.dob||'-'}</div></div>
+                    <div class="info-field"><label>Gender</label><div class="value-box">${e.gender||'-'}</div></div>
+                  </div>
+                  <div class="info-row" style="margin-top:14px;">
+                    <div class="info-field"><label>Email Address</label><div class="value-box">${e.email||'-'}</div></div>
+                    <div class="info-field"><label>Phone Number</label><div class="value-box">${e.phone||'-'}</div></div>
+                    <div class="info-field"><label>Nationality</label><div class="value-box">Filipino</div></div>
+                  </div>
+                </div>
+                <div class="info-section">
+                  <div class="section-title">Employment Details</div>
+                  <div class="info-row">
+                    <div class="info-field"><label>Position</label><div class="value-box">${e.position}</div></div>
+                    <div class="info-field"><label>Department</label><div class="value-box">${e.department}</div></div>
+                    <div class="info-field"><label>Employment Type</label><div class="value-box">${e.type||'Regular'}</div></div>
+                  </div>
+                  <div class="info-row" style="margin-top:14px;">
+                    <div class="info-field"><label>Date Hired</label><div class="value-box">${e.dateHired||'-'}</div></div>
+                    <div class="info-field"><label>Years of Service</label><div class="value-box">${e.yearsOfService || '-'}</div></div>
+                    <div class="info-field"><label>Salary Grade</label><div class="value-box">${e.salary||'-'}</div></div>
+                  </div>
+                  <div class="info-row" style="margin-top:14px;">
+                    <div class="info-field"><label>Leave Balance</label><div class="value-box">${e.leaveBalance !== undefined ? e.leaveBalance + ' day(s)' : '-'}</div></div>
+                    <div class="info-field"><label>Status</label><div class="value-box">${e.status||'Active'}</div></div>
+                    <div class="info-field"><label>Employee ID</label><div class="value-box">${e.id}</div></div>
+                  </div>
+                </div>
+                <div class="info-section">
+                  <div class="section-title">Benefits & Compensation</div>
+                  <div class="info-row">
+                    <div class="info-field"><label>SSS Number</label><div class="value-box">${e.sss || '-'}</div></div>
+                    <div class="info-field"><label>PhilHealth ID</label><div class="value-box">${e.philhealth || '-'}</div></div>
+                    <div class="info-field"><label>Pag-IBIG ID</label><div class="value-box">${e.pagibig || '-'}</div></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          `;
+    }
+
+    function complaintsPage() {
+      const myComplaints = complaints.filter(c => c.employee === currentUser?.email);
+      return `
+            <h1 class="page-title">Complaints / Requests</h1>
+            <p class="page-sub">Track your requests and see HR replies.</p>
+            <button class="btn btn-navy" style="margin-bottom:16px;" onclick="showNewComplaintModal()"><i class="fas fa-plus"></i> New Request</button>
+            <div class="panel">
+              ${myComplaints.length ? myComplaints.map(c => `
+                <div class="complaint-row">
+                  <div>
+                    <p style="margin:0;font-weight:600;font-size:13.5px;">${c.subject}</p>
+                    <span style="font-size:11.5px;color:var(--sub);">${c.date||''}</span>
+                    ${c.reply ? `<div class="reply-box"><div class="reply-label">HR Reply</div>${c.reply}</div>` : ''}
+                  </div>
+                  <div style="display:flex;gap:8px;align-items:center;flex-shrink:0;">
+                    <span class="prio prio-${(c.priority||'medium').toLowerCase()}">${c.priority||'Medium'}</span>
+                    <span class="pill ${c.status==='Pending'?'pill-pending':(c.status==='Approved'?'pill-approved':'pill-active')}">${c.status}</span>
+                  </div>
+                </div>
+              `).join('') : '<div class="empty-state"><i class="fas fa-comment-dots"></i><p>No complaints filed yet.</p></div>'}
+            </div>
+          `;
+    }
+
+    
+
+    window.showNewComplaintModal = function() {
+      openModal(`
+            <button class="modal-close" onclick="closeModal()"><i class="fas fa-times"></i></button>
+            <h2 style="margin-top:0;">New Request / Complaint</h2>
+            <div class="field"><label>Subject</label><input id="comp_subject" type="text" /></div>
+            <div class="field"><label>Priority</label>
+              <select id="comp_priority"><option>Low</option><option selected>Medium</option><option>High</option></select>
+            </div>
+            <button class="btn btn-navy" style="width:100%;margin-top:12px;" onclick="submitComplaint()">Submit</button>
+          `);
+    };
+
+    window.submitComplaint = async function() {
+      const subject = document.getElementById('comp_subject').value.trim();
+      if (!subject) { showToast('Please enter a subject', 'fa-triangle-exclamation'); return; }
+      const priority = document.getElementById('comp_priority').value;
+      try {
+        await fetch(`${API_BASE_URL}/complaints`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            subject, priority,
+            status: 'Pending',
+            date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+            employee: currentUser.email
+          })
+        });
+        await reloadAndRender();
+        closeModal();
+        showToast('Request submitted!');
+      } catch (err) {
+        showToast('Failed to submit request', 'fa-triangle-exclamation');
+      }
+    };
+
+    
+    
+    window.confirmResign = function(id) {
+      const e = employees.find(x => x.id === id);
+      if (!e) return;
+      const today = new Date().toISOString().slice(0, 10);
+      openModal(`
+            <button class="modal-close" onclick="closeModal()"><i class="fas fa-times"></i></button>
+            <div style="text-align:center;padding:10px 0;">
+              <div style="font-size:48px;color:var(--red);margin-bottom:16px;"><i class="fas fa-user-xmark"></i></div>
+              <h2 style="margin:0 0 6px;">Resign Employee</h2>
+              <p style="color:var(--sub);margin:0 0 20px;">Mark <strong>${e.first} ${e.last}</strong> as resigned and move to Separated records?</p>
+              <div class="field" style="text-align:left;"><label>Resignation Date</label><input id="resign_date" type="date" value="${today}" /></div>
+              <div style="display:flex;gap:10px;margin-top:16px;">
+                <button class="btn btn-outline" style="flex:1" onclick="closeModal()">Cancel</button>
+                <button class="btn btn-red" style="flex:1" onclick="resignEmployee('${e.id}')"><i class="fas fa-user-xmark"></i> Confirm Resign</button>
+              </div>
+            </div>
+          `);
+    };
+
+    window.resignEmployee = async function(id) {
+      const resignDate = document.getElementById('resign_date')?.value || new Date().toISOString().slice(0, 10);
+      try {
+        const res = await fetch(`${API_BASE_URL}/employees/${id}/resign`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ resignDate, resignedBy: currentUser.name })
+        });
+        const data = await res.json();
+        if (!res.ok) { showToast(data.error || 'Failed to resign', 'fa-triangle-exclamation'); return; }
+        await reloadAndRender();
+        closeModal();
+        showToast('Employee resigned and moved to Separated');
+      } catch (err) {
+        showToast('Failed to resign employee', 'fa-triangle-exclamation');
+      }
+    };
+
+    window.viewSeparatedEmployee = function(id) {
+      const e = separated.find(x => x.id === id);
+      if (!e) return;
+      openModal(`
+            <button class="modal-close" onclick="closeModal()"><i class="fas fa-times"></i></button>
+            <div style="text-align:center;margin-bottom:16px;">
+              <div class="avatar" style="width:70px;height:70px;font-size:26px;margin:0 auto 10px;"><i class="fas fa-user"></i></div>
+              <h2 style="margin:0;">${e.first} ${e.middle||''} ${e.last}</h2>
+              <p style="color:var(--sub);margin:4px 0;">${e.position} · ${e.department}</p>
+              <span class="pill pill-inactive">${e.status}</span>
+            </div>
+            <div class="modal-row"><span>Employee ID</span><span>${e.id}</span></div>
+            <div class="modal-row"><span>Date of Birth</span><span>${e.dob||'-'}</span></div>
+            <div class="modal-row"><span>Gender</span><span>${e.gender||'-'}</span></div>
+            <div class="modal-row"><span>Date Hired</span><span>${e.dateHired||'-'}</span></div>
+            <div class="modal-row"><span>Resignation Date</span><span style="color:var(--red);font-weight:700;">${e.resignDate || 'Not recorded'}</span></div>
+            <div class="modal-row"><span>Resigned By</span><span>${e.resignedBy || 'HR Admin'}</span></div>
+            <div class="modal-row"><span>Type</span><span>${e.type||'Regular'}</span></div>
+            <div class="modal-row"><span>Salary Grade</span><span>${e.salary||'-'}</span></div>
+            <div class="modal-row"><span>Leave Balance</span><span>${e.leaveBalance !== undefined ? e.leaveBalance + ' day(s)' : '-'}</span></div>
+            <div class="modal-row"><span>Email</span><span>${e.email||'-'}</span></div>
+            <div class="modal-row"><span>Phone</span><span>${e.phone||'-'}</span></div>
+            <div style="margin-top:18px;display:flex;gap:10px;">
+              <button class="btn btn-outline" style="flex:1" onclick="closeModal()">Close</button>
+            </div>
+          `);
+    };
+
+function employeeLeavePage() {
+      const e = getCurrentEmployee();
+      const myLeaves = leaveRequests.filter(l => l.email === currentUser?.email);
+      const bal = e?.leaveBalance !== undefined ? e.leaveBalance : 0;
+      return `
+            <h1 class="page-title">My Leave Requests</h1>
+            <p class="page-sub">View and file your leave requests.</p>
+            <div class="info-cards" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));margin-bottom:18px;">
+              <div class="info-card">
+                <div class="icon-wrap">
+                  <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><circle cx="12" cy="15" r="2"/><path d="M12 13v-2"/></svg>
+                </div>
+                <div class="value" style="color:${bal>3?'var(--green)':'var(--red)'};">${bal}</div>
+                <div class="label">Leave Balance Left</div>
+              </div>
+              <div class="info-card">
+                <div class="icon-wrap">
+                  <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                </div>
+                <div class="value">${myLeaves.filter(l=>l.status==='Pending').length}</div>
+                <div class="label">Pending Requests</div>
+              </div>
+            </div>
+            <button class="btn btn-navy" style="margin-bottom:16px;" onclick="showFileLeaveModal()"><i class="fas fa-plus"></i> File Leave Request</button>
+            <div class="panel" style="padding:0;overflow-x:auto;">
+              <table>
+                <thead><tr><th>Type</th><th>Dates</th><th>Reason</th><th>Status</th></tr></thead>
+                <tbody>
+                  ${myLeaves.length ? myLeaves.map(l => `
+                    <tr>
+                      <td>${l.type}</td>
+                      <td>${l.dates}</td>
+                      <td>${l.reason || '-'}</td>
+                      <td><span class="pill ${l.status==='Pending'?'pill-pending':(l.status==='Approved'?'pill-approved':'pill-rejected')}">${l.status}</span></td>
+                    </tr>
+                  `).join('') : `<tr><td colspan="4"><div class="empty-state"><i class="fas fa-calendar"></i><p>No leave requests filed yet.</p></div></td></tr>`}
+                </tbody>
+              </table>
+            </div>
+          `;
+    }
+
+    window.showFileLeaveModal = function() {
+      const e = getCurrentEmployee();
+      if (!e) { showToast('Employee record not found', 'fa-triangle-exclamation'); return; }
+      const today = new Date().toISOString().slice(0, 10);
+      const bal = e.leaveBalance !== undefined ? e.leaveBalance : 0;
+      openModal(`
+            <button class="modal-close" onclick="closeModal()"><i class="fas fa-times"></i></button>
+            <h2 style="margin-top:0;">File Leave Request</h2>
+            <div style="background:#f6f7fb;border-radius:12px;padding:14px 16px;margin-bottom:16px;display:flex;align-items:center;gap:12px;border-left:4px solid ${bal>3?'var(--green)':'var(--red)'};">
+              <i class="fas fa-wallet" style="font-size:20px;color:${bal>3?'var(--green)':'var(--red)'};"></i>
+              <div>
+                <div style="font-weight:700;font-size:13px;">Leave Balance Available</div>
+                <div style="font-size:20px;font-weight:800;color:${bal>3?'var(--green)':'var(--red)'};">${bal} <span style="font-size:12px;color:var(--sub);font-weight:500;">day(s) left</span></div>
+              </div>
+            </div>
+            <div class="field"><label>Leave Type</label>
+              <select id="leave_type">
+                <option>Sick Leave</option>
+                <option>Vacation Leave</option>
+                <option>Emergency Leave</option>
+              </select>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+              <div class="field" style="margin-bottom:0;"><label>Start Date</label><input id="leave_start" type="date" min="${today}" /></div>
+              <div class="field" style="margin-bottom:0;"><label>End Date</label><input id="leave_end" type="date" min="${today}" /></div>
+            </div>
+            <div class="field"><label>Reason</label><input id="leave_reason" type="text" placeholder="Brief reason for leave" /></div>
+            <button class="btn btn-navy" style="width:100%;margin-top:12px;" onclick="submitLeaveRequest()">Submit Request</button>
+          `);
+    };
+
+    window.submitLeaveRequest = async function() {
+      const type = document.getElementById('leave_type').value;
+      const start = document.getElementById('leave_start').value;
+      const end = document.getElementById('leave_end').value;
+      const reason = document.getElementById('leave_reason').value.trim();
+      if (!start || !end) { showToast('Please select start and end dates', 'fa-triangle-exclamation'); return; }
+      if (new Date(start) > new Date(end)) { showToast('End date must be after start date', 'fa-triangle-exclamation'); return; }
+
+      const e = getCurrentEmployee();
+      const daysRequested = Math.ceil((new Date(end) - new Date(start)) / (1000 * 60 * 60 * 24)) + 1;
+      const bal = e?.leaveBalance !== undefined ? e.leaveBalance : 0;
+      if (bal < daysRequested) { showToast('Insufficient leave balance. You have ' + bal + ' day(s) left.', 'fa-triangle-exclamation'); return; }
+
+      const startFmt = new Date(start).toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'});
+      const endFmt = new Date(end).toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'});
+      const dates = startFmt + ' - ' + endFmt;
+
+      try {
+        const res = await fetch(`${API_BASE_URL}/leave-requests/submit`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: currentUser.name,
+            email: currentUser.email,
+            dept: e.department,
+            type,
+            dates,
+            startDate: start,
+            endDate: end,
+            reason,
+            status: 'Pending',
+            dateFiled: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+          })
+        });
+        const data = await res.json();
+        if (!res.ok) { showToast(data.error || 'Failed to submit', 'fa-triangle-exclamation'); return; }
+        await reloadAndRender();
+        closeModal();
+        showToast('Leave request submitted! Remaining: ' + (data.remainingBalance || (bal - daysRequested)) + ' day(s)');
+      } catch (err) {
+        showToast('Failed to submit leave request', 'fa-triangle-exclamation');
+      }
+    };
+
+function employeeAttendancePage() {
+      const e = getCurrentEmployee();
+      const pastDays = [
+        { d: 'May 28', tin: '07:52 AM', tout: '05:04 PM', s: 'Present' },
+        { d: 'May 29', tin: '08:10 AM', tout: '05:00 PM', s: 'Late' },
+        { d: 'May 30', tin: '07:45 AM', tout: '05:02 PM', s: 'Present' },
+        { d: 'May 31', tin: '-', tout: '-', s: 'Absent' },
+      ];
+      const today = e ? attendanceLogs.find(l => l.employeeId === e.id && l.date === todayStr()) : null;
+      const todayRow = { d: 'Today', tin: today?.timeIn || '-', tout: today?.timeOut || '-', s: today?.status || 'Not yet recorded' };
+      const rows = [todayRow, ...pastDays];
+      const btnLabel = !today ? 'Time In' : (!today.timeOut ? 'Time Out' : 'Completed');
+      const btnDisabled = today && today.timeOut;
+      return `
+            <h1 class="page-title">My Attendance</h1>
+            <p class="page-sub">Your recent time-in / time-out records.</p>
+            <div class="panel" style="margin-bottom:18px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:14px;">
+              <div>
+                <p style="font-weight:700;margin:0;">Biometric Time Clock</p>
+                <p style="font-size:12px;color:var(--sub);margin:0;">${today ? (today.timeOut ? "Today's attendance completed" : 'Timed in at ' + today.timeIn) : 'Not yet clocked in today'}</p>
+              </div>
+              <button class="btn btn-navy" ${btnDisabled ? 'style="opacity:.5;cursor:not-allowed;" disabled' : ''} onclick="employeeBiometricClock()"><i class="fas fa-fingerprint"></i> ${btnLabel}</button>
+            </div>
+            <div class="panel" style="padding:0;overflow-x:auto;">
+              <table>
+                <thead><tr><th>Date</th><th>Time In</th><th>Time Out</th><th>Status</th></tr></thead>
+                <tbody>
+                  ${rows.map(r => `
+                    <tr><td>${r.d}</td><td>${r.tin}</td><td>${r.tout}</td>
+                    <td><span class="pill ${r.s==='Present'?'pill-active':(r.s==='Late'?'pill-leave':(r.s==='Absent'?'pill-inactive':'pill-pending'))}">${r.s}</span></td></tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+          `;
+    }
+    window.employeeBiometricClock = async function() {
+      const e = getCurrentEmployee();
+      const today = attendanceLogs.find(l => l.employeeId === e.id && l.date === todayStr());
+      if (today && today.timeOut) { showToast("You've already completed today's attendance", 'fa-circle-check'); return; }
+      openModal(`
+            <div style="text-align:center;padding:14px 0;">
+              <div style="font-size:56px;color:var(--orange);margin-bottom:16px;"><i class="fas fa-fingerprint fa-beat"></i></div>
+              <h3 style="margin:0 0 6px;">Scanning fingerprint…</h3>
+              <p style="color:var(--sub);font-size:13px;">Hold still</p>
+            </div>
+          `);
+      setTimeout(async () => {
+        try {
+          const res = await fetch(`${API_BASE_URL}/attendance/scan`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ employeeId: e.id })
+          });
+          const result = await res.json();
+          await reloadAndRender();
+          modalBody.innerHTML = `
+                <div style="text-align:center;">
+                  <div class="success-tick"><i class="fas fa-check"></i></div>
+                  <h2 style="margin:0 0 6px;">${result.action}</h2>
+                  <p style="color:var(--sub);margin:0 0 20px;">${result.time}</p>
+                  <button class="btn btn-navy" style="width:100%;" onclick="closeModal()">Done</button>
+                </div>
+              `;
+        } catch (err) {
+          showToast('Scan failed', 'fa-triangle-exclamation');
+          closeModal();
+        }
+      }, 1300);
+    };
+
+    function renderStarRating(rating) {
+      let stars = '';
+      for (let i = 1; i <= 5; i++) {
+        stars += `<i class="fas fa-star ${i <= rating ? '' : 'empty'}"></i>`;
+      }
+      return `<div class="rating-stars">${stars}</div>`;
+    }
+
+    function employeeReportsPage() {
+      const e = getCurrentEmployee();
+      if (!e) return `<div class="panel"><div class="empty-state"><i class="fas fa-chart-bar"></i><p>Employee record not found.</p></div></div>`;
+      const myReports = reports.filter(r => r.employeeId === e.id);
+      return `
+            <h1 class="page-title">My Reports</h1>
+            <p class="page-sub">View your performance evaluations and reports.</p>
+            ${myReports.length ? myReports.map(r => `
+              <div class="report-card">
+                <div class="report-header">
+                  <div>
+                    <h4>Performance Evaluation — ${r.period}</h4>
+                    <div class="report-meta">
+                      <span><i class="fas fa-calendar"></i> ${r.evaluationDate}</span>
+                      <span><i class="fas fa-user"></i> Evaluator: ${r.evaluator}</span>
+                      <span class="report-status ${r.status==='Finalized'?'status-finalized':'status-draft'}">${r.status}</span>
+                    </div>
+                  </div>
+                  <div style="text-align:right;">
+                    ${renderStarRating(r.overallRating)}
+                    <div style="font-size:12px;color:var(--sub);margin-top:4px;">Overall: ${r.overallRating}/5</div>
+                  </div>
+                </div>
+                <div class="report-categories">
+                  ${r.categories.map(c => `
+                    <div class="report-cat">
+                      <div class="report-cat-name">${c.name}</div>
+                      <div class="report-cat-val">${renderStarRating(c.rating)} <span style="color:var(--sub);font-size:11px;margin-left:6px;">${c.comment}</span></div>
+                    </div>
+                  `).join('')}
+                </div>
+                <div class="report-section-title">Strengths</div>
+                <div class="report-text">${r.strengths}</div>
+                <div class="report-section-title">Areas for Improvement</div>
+                <div class="report-text">${r.improvements}</div>
+                <div class="report-section-title">Goals for Next Period</div>
+                <div class="report-text">${r.goals}</div>
+              </div>
+            `).join('') : `<div class="panel"><div class="empty-state"><i class="fas fa-chart-bar"></i><p>No reports available yet.</p></div></div>`}
+          `;
+    }
+
+    function adminReportsPage() {
+      return `
+            <div class="page-header-flex">
+              <div>
+                <h1 class="page-title">Employee Reports</h1>
+                <p class="page-sub">View and manage performance evaluations. Use <strong>Auto-Generate from Attendance</strong> to create data-driven reports.</p>
+              </div>
+              <button class="btn btn-navy" onclick="showNewReportModal()" style="margin-top:4px;"><i class="fas fa-plus"></i> New Report</button>
+            </div>
+            <div class="panel" style="padding:0;overflow-x:auto;">
+              <table>
+                <thead><tr><th>Employee</th><th>Department</th><th>Period</th><th>Rating</th><th>Source</th><th>Status</th><th>Action</th></tr></thead>
+                <tbody>
+                  ${reports.length ? reports.map(r => {
+                    const hasAttendance = r.strengths && (r.strengths.includes('Attendance Rate') || r.strengths.includes('Present:'));
+                    return `
+                    <tr>
+                      <td>${r.employeeName}</td>
+                      <td>${r.department}</td>
+                      <td>${r.period}</td>
+                      <td>${renderStarRating(r.overallRating)} <span style="font-size:11px;color:var(--sub);">${r.overallRating}/5</span></td>
+                      <td>${hasAttendance ? '<span class="pill pill-active" style="font-size:10px;"><i class="fas fa-chart-bar"></i> Attendance</span>' : '<span style="font-size:11px;color:var(--sub);">Manual</span>'}</td>
+                      <td><span class="pill ${r.status==='Finalized'?'pill-active':'pill-pending'}">${r.status}</span></td>
+                      <td>
+                        <button class="btn btn-outline btn-sm" onclick="viewReport('${r._id}')">View</button>
+                        <button class="btn btn-navy btn-sm" onclick="editReport('${r._id}')">Edit</button>
+                        <button class="btn btn-red btn-sm" onclick="deleteReport('${r._id}')">Delete</button>
+                      </td>
+                    </tr>
+                  `}).join('') : `<tr><td colspan="7"><div class="empty-state"><i class="fas fa-chart-bar"></i><p>No reports found.</p></div></td></tr>`}
+                </tbody>
+              </table>
+            </div>
+          `;
+    }
+
+    window.viewReport = function(id) {
+      const r = reports.find(x => x._id === id);
+      if (!r) return;
+      const hasAttendance = r.strengths && (r.strengths.includes('Attendance Rate') || r.strengths.includes('Present:'));
+      openModal(`
+        <button class="modal-close" onclick="closeModal()"><i class="fas fa-times"></i></button>
+        <h2 style="margin-top:0;">Performance Report</h2>
+        <div class="modal-row"><span>Employee</span><span>${r.employeeName}</span></div>
+        <div class="modal-row"><span>Department</span><span>${r.department}</span></div>
+        <div class="modal-row"><span>Period</span><span>${r.period}</span></div>
+        <div class="modal-row"><span>Evaluation Date</span><span>${r.evaluationDate}</span></div>
+        <div class="modal-row"><span>Overall Rating</span><span>${renderStarRating(r.overallRating)} ${r.overallRating}/5</span></div>
+        <div class="modal-row"><span>Evaluator</span><span>${r.evaluator}</span></div>
+        <div class="modal-row"><span>Status</span><span class="pill ${r.status==='Finalized'?'pill-active':'pill-pending'}">${r.status}</span></div>
+        ${hasAttendance ? `<div style="margin-top:14px;background:#e6ecfb;border-radius:10px;padding:12px 14px;border-left:3px solid var(--navy-light);">
+          <div style="font-size:11px;font-weight:700;color:var(--navy-light);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;"><i class="fas fa-chart-bar"></i> Based on Attendance Data</div>
+          <div style="font-size:12.5px;color:var(--ink);">This report was generated using attendance records.</div>
+        </div>` : ''}
+        <div style="margin-top:14px;">
+          <div class="report-section-title">Category Ratings</div>
+          ${r.categories.map(c => `
+            <div class="modal-row" style="border-bottom:none;padding:6px 0;"><span>${c.name}</span><span>${renderStarRating(c.rating)} ${c.rating}/5 — ${c.comment}</span></div>
+          `).join('')}
+        </div>
+        <div class="report-section-title">Strengths</div>
+        <div class="report-text">${r.strengths}</div>
+        <div class="report-section-title">Areas for Improvement</div>
+        <div class="report-text">${r.improvements}</div>
+        <div class="report-section-title">Goals</div>
+        <div class="report-text">${r.goals}</div>
+        <button class="btn btn-outline" style="width:100%;margin-top:16px;" onclick="closeModal()">Close</button>
+      `);
+    };
+
+    window.editReport = function(id) {
+      const r = reports.find(x => x._id === id);
+      if (!r) return;
+      const emp = employees.find(e => e.id === r.employeeId);
+      openModal(`
+        <button class="modal-close" onclick="closeModal()"><i class="fas fa-times"></i></button>
+        <h2 style="margin-top:0;">Edit Report</h2>
+        <div class="field"><label>Employee</label><select id="rep_emp">${employees.map(e => `<option value="${e.id}" ${e.id===r.employeeId?'selected':''}>${e.first} ${e.last} (${e.id})</option>`).join('')}</select></div>
+        <div class="form-grid" style="grid-template-columns:1fr 1fr;">
+          <div class="field"><label>Period</label><input id="rep_period" type="text" value="${r.period}" /></div>
+          <div class="field"><label>Evaluation Date</label><input id="rep_date" type="date" value="${r.evaluationDate}" /></div>
+          <div class="field"><label>Overall Rating (1-5)</label><input id="rep_rating" type="number" min="1" max="5" value="${r.overallRating}" /></div>
+          <div class="field"><label>Status</label><select id="rep_status"><option ${r.status==='Draft'?'selected':''}>Draft</option><option ${r.status==='Finalized'?'selected':''}>Finalized</option></select></div>
+        </div>
+        <div class="field"><label>Evaluator</label><input id="rep_evaluator" type="text" value="${r.evaluator}" /></div>
+        <div class="field"><label>Strengths</label><textarea id="rep_strengths" style="width:100%;padding:10px;border-radius:10px;border:1px solid var(--line);background:#f6f7fb;font-family:inherit;font-size:13.5px;min-height:60px;">${r.strengths}</textarea></div>
+        <div class="field"><label>Areas for Improvement</label><textarea id="rep_improvements" style="width:100%;padding:10px;border-radius:10px;border:1px solid var(--line);background:#f6f7fb;font-family:inherit;font-size:13.5px;min-height:60px;">${r.improvements}</textarea></div>
+        <div class="field"><label>Goals for Next Period</label><textarea id="rep_goals" style="width:100%;padding:10px;border-radius:10px;border:1px solid var(--line);background:#f6f7fb;font-family:inherit;font-size:13.5px;min-height:60px;">${r.goals}</textarea></div>
+        <div style="display:flex;gap:10px;margin-top:14px;">
+          <button class="btn btn-outline" style="flex:1" onclick="closeModal()">Cancel</button>
+          <button class="btn btn-navy" style="flex:1" onclick="saveReportEdit('${r._id}')"><i class="fas fa-save"></i> Save Changes</button>
+        </div>
+      `);
+    };
+
+    window.saveReportEdit = async function(id) {
+      const payload = {
+        employeeId: document.getElementById('rep_emp').value,
+        employeeName: employees.find(e => e.id === document.getElementById('rep_emp').value)?.first + ' ' + employees.find(e => e.id === document.getElementById('rep_emp').value)?.last,
+        department: employees.find(e => e.id === document.getElementById('rep_emp').value)?.department,
+        period: document.getElementById('rep_period').value,
+        evaluationDate: document.getElementById('rep_date').value,
+        overallRating: parseInt(document.getElementById('rep_rating').value) || 1,
+        evaluator: document.getElementById('rep_evaluator').value,
+        strengths: document.getElementById('rep_strengths').value,
+        improvements: document.getElementById('rep_improvements').value,
+        goals: document.getElementById('rep_goals').value,
+        status: document.getElementById('rep_status').value
+      };
+      try {
+        await fetch(`${API_BASE_URL}/reports/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        await reloadAndRender();
+        closeModal();
+        showToast('Report updated successfully!');
+      } catch (err) {
+        showToast('Failed to update report', 'fa-triangle-exclamation');
+      }
+    };
+
+    window.deleteReport = async function(id) {
+      if (!confirm('Are you sure you want to delete this report?')) return;
+      try {
+        await fetch(`${API_BASE_URL}/reports/${id}`, { method: 'DELETE' });
+        await reloadAndRender();
+        showToast('Report deleted');
+      } catch (err) {
+        showToast('Failed to delete report', 'fa-triangle-exclamation');
+      }
+    };
+
+    window.showNewReportModal = function() {
+      const today = new Date().toISOString().slice(0, 10);
+      openModal(`
+        <button class="modal-close" onclick="closeModal()"><i class="fas fa-times"></i></button>
+        <h2 style="margin-top:0;">New Performance Report</h2>
+        <div class="field"><label>Employee</label><select id="rep_emp_new" onchange="clearAttendancePreview()">${employees.map(e => `<option value="${e.id}">${e.first} ${e.last} (${e.id})</option>`).join('')}</select></div>
+        <button class="btn btn-outline" style="width:100%;margin-bottom:14px;" onclick="autoFillReportFromAttendance()"><i class="fas fa-magic"></i> Auto-Generate from Attendance</button>
+        <div id="attendancePreview" style="display:none;background:#f6f7fb;border-radius:10px;padding:12px 14px;margin-bottom:14px;border-left:3px solid var(--navy-light);">
+          <div style="font-size:11px;font-weight:700;color:var(--navy-light);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Attendance Summary</div>
+          <div id="attendancePreviewContent" style="font-size:12.5px;color:var(--ink);"></div>
+        </div>
+        <div class="form-grid" style="grid-template-columns:1fr 1fr;">
+          <div class="field"><label>Period</label><input id="rep_period_new" type="text" placeholder="e.g. Q2 2026" /></div>
+          <div class="field"><label>Evaluation Date</label><input id="rep_date_new" type="date" value="${today}" /></div>
+          <div class="field"><label>Overall Rating (1-5)</label><input id="rep_rating_new" type="number" min="1" max="5" value="3" /></div>
+          <div class="field"><label>Status</label><select id="rep_status_new"><option>Draft</option><option>Finalized</option></select></div>
+        </div>
+        <div class="field"><label>Evaluator</label><input id="rep_evaluator_new" type="text" value="${currentUser.name}" /></div>
+        <div class="field"><label>Strengths</label><textarea id="rep_strengths_new" style="width:100%;padding:10px;border-radius:10px;border:1px solid var(--line);background:#f6f7fb;font-family:inherit;font-size:13.5px;min-height:60px;" placeholder="List employee strengths..."></textarea></div>
+        <div class="field"><label>Areas for Improvement</label><textarea id="rep_improvements_new" style="width:100%;padding:10px;border-radius:10px;border:1px solid var(--line);background:#f6f7fb;font-family:inherit;font-size:13.5px;min-height:60px;" placeholder="List areas for improvement..."></textarea></div>
+        <div class="field"><label>Goals for Next Period</label><textarea id="rep_goals_new" style="width:100%;padding:10px;border-radius:10px;border:1px solid var(--line);background:#f6f7fb;font-family:inherit;font-size:13.5px;min-height:60px;" placeholder="Set goals for next evaluation period..."></textarea></div>
+        <div style="display:flex;gap:10px;margin-top:14px;">
+          <button class="btn btn-outline" style="flex:1" onclick="closeModal()">Cancel</button>
+          <button class="btn btn-navy" style="flex:1" onclick="submitNewReport()"><i class="fas fa-plus"></i> Create Report</button>
+        </div>
+      `);
+    };
+
+    window.submitNewReport = async function() {
+      const empId = document.getElementById('rep_emp_new').value;
+      const emp = employees.find(e => e.id === empId);
+      const payload = {
+        employeeId: empId,
+        employeeName: emp ? `${emp.first} ${emp.middle||''} ${emp.last}` : '',
+        department: emp?.department || '',
+        period: document.getElementById('rep_period_new').value,
+        evaluationDate: document.getElementById('rep_date_new').value,
+        overallRating: parseInt(document.getElementById('rep_rating_new').value) || 1,
+        evaluator: document.getElementById('rep_evaluator_new').value,
+        strengths: document.getElementById('rep_strengths_new').value,
+        improvements: document.getElementById('rep_improvements_new').value,
+        goals: document.getElementById('rep_goals_new').value,
+        status: document.getElementById('rep_status_new').value,
+        categories: [
+          { name: 'Job Knowledge', rating: 3, comment: 'To be evaluated' },
+          { name: 'Quality of Work', rating: 3, comment: 'To be evaluated' },
+          { name: 'Punctuality', rating: 3, comment: 'To be evaluated' },
+          { name: 'Professionalism', rating: 3, comment: 'To be evaluated' }
+        ]
+      };
+      if (!payload.period) { showToast('Please enter a period', 'fa-triangle-exclamation'); return; }
+      try {
+        await fetch(`${API_BASE_URL}/reports`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        await reloadAndRender();
+        closeModal();
+        showToast('Report created successfully!');
+      } catch (err) {
+        showToast('Failed to create report', 'fa-triangle-exclamation');
+      }
+    };
+
+    function renderNotifications() {
+      notifList.innerHTML = announcements.slice(0, 5).map(a => `
+            <div class="notif-item">
+              <div class="ic" style="background:${a.bg||'#e6ecfb'};color:${a.color||'#2c4ba3'}"><i class="fas ${a.icon||'fa-bullhorn'}"></i></div>
+              <div><p>${a.title}</p><span>${a.meta||''}</span></div>
+            </div>
+          `).join('') || '<div style="padding:20px;color:var(--sub);text-align:center;">No notifications</div>';
+    }
+
+    (async function boot() {
+      const storedUser = localStorage.getItem('bc_user');
+      const token = localStorage.getItem('bc_token');
+      if (storedUser && token) {
+        try {
+          currentUser = JSON.parse(storedUser);
+          await initApp();
+          return;
+        } catch (e) {}
+      }
+      renderAuthPage();
+    })();
+
+
+  </script>
+</body>
+</html>

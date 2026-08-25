@@ -1,0 +1,22 @@
+{
+  "name": "benedicto-hr-system",
+  "version": "1.0.0",
+  "description": "HR Management System for Benedicto College",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js",
+    "deploy": "wrangler deploy",
+    "preview": "wrangler dev"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^17.4.2",
+    "express": "^4.18.2",
+    "mongoose": "^8.0.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1",
+    "wrangler": "^4.125.0"
+  }
+}
