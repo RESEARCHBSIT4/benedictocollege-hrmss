@@ -4,12 +4,11 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const path = require('path');
-const os = require('os');
 
 const app = express();
 
 // ─────────────────────────────────────
-// CORS - Updated to allow your Cloudflare Pages domain
+// CORS
 // ─────────────────────────────────────
 app.use(cors({
   origin: '*',
@@ -31,10 +30,13 @@ console.log('MongoDB URI exists:', !!process.env.MONGODB_URI);
 
 if (!process.env.MONGODB_URI) {
   console.error('❌ MONGODB_URI is missing from your .env file.');
-  process.exit(1);
+  console.error('   Create a .env file in this same folder with:');
+  console.error('   MONGODB_URI=mongodb://localhost:27017/HR-Admin-Database');
+  console.error('   Or use your MongoDB Atlas connection string.');
+  console.error('   Server will start, but data features will not work without a database.');
 }
 
-mongoose.connect(process.env.MONGODB_URI, {
+mongoose.connect(process.env.MONGODB_URI || '', {
   serverSelectionTimeoutMS: 10000
 })
 .then(() => {
@@ -42,6 +44,7 @@ mongoose.connect(process.env.MONGODB_URI, {
 })
 .catch((error) => {
   console.error('❌ MongoDB Connection Error:', error.message);
+  console.log('⚠️  Running without database — APIs will return errors.');
 });
 
 // ─── Schemas ───
@@ -52,7 +55,10 @@ const User = mongoose.model('User', new mongoose.Schema({
   role: {
     type: String,
     enum: ['admin', 'employee']
-  }
+  },
+  phone: String,
+  position: String,
+  photo: String
 }));
 
 const Employee = mongoose.model('Employee', new mongoose.Schema({
@@ -61,7 +67,13 @@ const Employee = mongoose.model('Employee', new mongoose.Schema({
   dateHired: String, salary: String, status: String, type: String,
   email: String, phone: String, regularization: String, yearsOfService: Number,
   resignDate: String,
-  leaveBalance: { type: Number, default: 15 }
+  leaveBalance: { type: Number, default: 15 },
+  sss: String,
+  philhealth: String,
+  pagibig: String,
+  pin: String,
+  duties: String,
+  photo: String
 }));
 
 const Separated = mongoose.model('Separated', new mongoose.Schema({
@@ -73,7 +85,7 @@ const Separated = mongoose.model('Separated', new mongoose.Schema({
 }));
 
 const Department = mongoose.model('Department', new mongoose.Schema({
-  name: String, count: Number, detail: String, status: String
+  name: String, count: Number, detail: String, status: String, group: String, head: String
 }));
 
 const LeaveRequest = mongoose.model('LeaveRequest', new mongoose.Schema({
@@ -114,7 +126,15 @@ const Report = mongoose.model('Report', new mongoose.Schema({
   improvements: String,
   goals: String,
   evaluator: String,
-  status: { type: String, enum: ['Draft', 'Finalized'], default: 'Draft' }
+  status: { type: String, enum: ['Draft', 'Finalized'], default: 'Draft' },
+  attendanceSummary: {
+    attendanceRate: Number,
+    punctualityRate: Number,
+    present: Number,
+    late: Number,
+    absent: Number,
+    totalDays: Number
+  }
 }));
 
 // ─── Seed Data ───
@@ -123,7 +143,7 @@ async function seed() {
     const userCount = await User.countDocuments();
     if (userCount === 0) {
       await User.insertMany([
-        { name: 'HR Admin', email: 'admin@benedicto.edu', password: 'admin123', role: 'admin' },
+        { name: 'HR Admin', email: 'admin@benedicto.edu', password: 'admin123', role: 'admin', phone: '0917-555-0000', position: 'HR Manager' },
         { name: 'Emma Santos', email: 'emma.santos@benedicto.edu', password: 'employee123', role: 'employee' }
       ]);
       console.log('✅ Default users created');
@@ -132,51 +152,64 @@ async function seed() {
     const empCount = await Employee.countDocuments();
     if (empCount === 0) {
       await Employee.insertMany([
-        { id: 'BC-2023-001', first: 'Emma', middle: 'R', last: 'Santos', dob: '1992-03-11', gender: 'Female', position: 'Librarian', department: 'Library', dateHired: '2019-08-01', salary: 'SG-10', status: 'Active', type: 'Regular', email: 'emma.santos@benedicto.edu', phone: '0917-555-0101', leaveBalance: 15 },
-        { id: 'BC-2023-002', first: 'Carlos', middle: 'D', last: 'Reyes', dob: '1988-11-22', gender: 'Male', position: 'Library Assistant', department: 'Library', dateHired: '2021-02-15', salary: 'SG-6', status: 'Active', type: 'Regular', email: 'carlos.reyes@benedicto.edu', phone: '0917-555-0102', leaveBalance: 10 },
-        { id: 'BC-2023-003', first: 'Maria', middle: 'L', last: 'Cruz', dob: '1985-06-30', gender: 'Female', position: 'Registrar Officer', department: 'Registrar', dateHired: '2017-01-10', salary: 'SG-11', status: 'Active', type: 'Regular', email: 'maria.cruz@benedicto.edu', phone: '0917-555-0103', leaveBalance: 12 },
-        { id: 'BC-2023-004', first: 'Jose', middle: 'P', last: 'Villanueva', dob: '1990-09-05', gender: 'Male', position: 'Accountant', department: 'Finance', dateHired: '2020-05-18', salary: 'SG-12', status: 'On Leave', type: 'Regular', email: 'jose.v@benedicto.edu', phone: '0917-555-0104', leaveBalance: 8 },
-        { id: 'BC-2023-005', first: 'Wilma', middle: 'S', last: 'Mondragon', dob: '1990-05-15', gender: 'Female', position: 'Instructor', department: 'College of Business and Management', dateHired: '2020-04-12', salary: 'SG-12', status: 'Active', type: 'Regular', email: 'wilma.m@benedicto.edu', phone: '0917-123-4567', leaveBalance: 15 },
-        { id: 'BC-2023-006', first: 'Anton', middle: 'F', last: 'Bautista', dob: '1993-01-19', gender: 'Male', position: 'IT Support', department: 'IT Services', dateHired: '2022-03-01', salary: 'SG-9', status: 'Active', type: 'Contractual', email: 'anton.b@benedicto.edu', phone: '0917-555-0106', leaveBalance: 5 },
-        { id: 'BC-2023-007', first: 'Lorna', middle: 'T', last: 'Del Rosario', dob: '1989-04-12', gender: 'Female', position: 'Secretary', department: 'Human Resources', dateHired: '2018-03-15', salary: 'SG-8', status: 'Active', type: 'Regular', email: 'lorna.d@benedicto.edu', phone: '0917-555-0107', leaveBalance: 10 },
-        { id: 'BC-2023-008', first: 'Ricardo', middle: 'L', last: 'Fernandez', dob: '1987-08-22', gender: 'Male', position: 'Engineering Instructor', department: 'College of Engineering', dateHired: '2019-06-10', salary: 'SG-13', status: 'Active', type: 'Regular', email: 'ricardo.f@benedicto.edu', phone: '0917-555-0108', leaveBalance: 14 },
-        { id: 'BC-2023-009', first: 'Sarah', middle: 'J', last: 'Lim', dob: '1991-12-05', gender: 'Female', position: 'Nursing Instructor', department: 'College of Nursing', dateHired: '2021-01-20', salary: 'SG-13', status: 'Active', type: 'Regular', email: 'sarah.l@benedicto.edu', phone: '0917-555-0109', leaveBalance: 12 },
-        { id: 'BC-2023-010', first: 'Mark', middle: 'A', last: 'Tan', dob: '1994-04-18', gender: 'Male', position: 'SHS Teacher', department: 'Senior High School', dateHired: '2022-06-01', salary: 'SG-9', status: 'Active', type: 'Regular', email: 'mark.t@benedicto.edu', phone: '0917-555-0110', leaveBalance: 10 }
+        { id: 'BC-2023-001', first: 'Emma', middle: 'R', last: 'Santos', dob: '1992-03-11', gender: 'Female', position: 'Librarian', department: 'Arts and Science Department', dateHired: '2019-08-01', salary: 'SG-10', status: 'Active', type: 'Regular', email: 'emma.santos@benedicto.edu', phone: '0917-555-0101', leaveBalance: 15, sss: '34-1234567-8', philhealth: '12-345678901-2', pagibig: '1234-5678-9012', pin: '2023001', duties: 'Manages library operations, cataloging, and student research assistance.' },
+        { id: 'BC-2023-002', first: 'Carlos', middle: 'D', last: 'Reyes', dob: '1988-11-22', gender: 'Male', position: 'Library Assistant', department: 'Arts and Science Department', dateHired: '2021-02-15', salary: 'SG-6', status: 'Active', type: 'Regular', email: 'carlos.reyes@benedicto.edu', phone: '0917-555-0102', leaveBalance: 10, sss: '34-7654321-0', philhealth: '12-987654321-0', pagibig: '9876-5432-1098', pin: '2023002', duties: 'Assists with circulation desk, shelving, and library inventory.' },
+        { id: 'BC-2023-003', first: 'Maria', middle: 'L', last: 'Cruz', dob: '1985-06-30', gender: 'Female', position: 'Registrar Officer', department: 'Education Department', dateHired: '2017-01-10', salary: 'SG-11', status: 'Active', type: 'Regular', email: 'maria.cruz@benedicto.edu', phone: '0917-555-0103', leaveBalance: 12, sss: '34-1111111-1', philhealth: '12-111111111-1', pagibig: '1111-1111-1111', pin: '2023003', duties: 'Handles student records, enrollment, and academic documentation.' },
+        { id: 'BC-2023-004', first: 'Jose', middle: 'P', last: 'Villanueva', dob: '1990-09-05', gender: 'Male', position: 'Accountant', department: 'Business and Accountancy Department', dateHired: '2020-05-18', salary: 'SG-12', status: 'On Leave', type: 'Regular', email: 'jose.v@benedicto.edu', phone: '0917-555-0104', leaveBalance: 8, sss: '34-2222222-2', philhealth: '12-222222222-2', pagibig: '2222-2222-2222', pin: '2023004', duties: 'Oversees payroll, budgeting, and financial reporting for the department.' },
+        { id: 'BC-2023-005', first: 'Wilma', middle: 'S', last: 'Mondragon', dob: '1990-05-15', gender: 'Female', position: 'Instructor', department: 'Business and Accountancy Department', dateHired: '2020-04-12', salary: 'SG-12', status: 'Active', type: 'Regular', email: 'wilma.m@benedicto.edu', phone: '0917-123-4567', leaveBalance: 15, sss: '34-3333333-3', philhealth: '12-333333333-3', pagibig: '3333-3333-3333', pin: '2023005', duties: 'Teaches business subjects and mentors student org activities.' },
+        { id: 'BC-2023-006', first: 'Anton', middle: 'F', last: 'Bautista', dob: '1993-01-19', gender: 'Male', position: 'IT Support', department: 'IT Department', dateHired: '2022-03-01', salary: 'SG-9', status: 'Active', type: 'Contractual', email: 'anton.b@benedicto.edu', phone: '0917-555-0106', leaveBalance: 5, sss: '34-4444444-4', philhealth: '12-444444444-4', pagibig: '4444-4444-4444', pin: '2023006', duties: 'Maintains campus network, hardware, and staff technical support.' },
+        { id: 'BC-2023-007', first: 'Lorna', middle: 'T', last: 'Del Rosario', dob: '1989-04-12', gender: 'Female', position: 'Secretary', department: 'Education Department', dateHired: '2018-03-15', salary: 'SG-8', status: 'Active', type: 'Regular', email: 'lorna.d@benedicto.edu', phone: '0917-555-0107', leaveBalance: 10, sss: '34-5555555-5', philhealth: '12-555555555-5', pagibig: '5555-5555-5555', pin: '2023007', duties: 'Handles department correspondence, scheduling, and filing.' },
+        { id: 'BC-2023-008', first: 'Ricardo', middle: 'L', last: 'Fernandez', dob: '1987-08-22', gender: 'Male', position: 'Engineering Instructor', department: 'Engineering Department', dateHired: '2019-06-10', salary: 'SG-13', status: 'Active', type: 'Regular', email: 'ricardo.f@benedicto.edu', phone: '0917-555-0108', leaveBalance: 14, sss: '34-6666666-6', philhealth: '12-666666666-6', pagibig: '6666-6666-6666', pin: '2023008', duties: 'Teaches engineering courses and supervises laboratory work.' },
+        { id: 'BC-2023-009', first: 'Sarah', middle: 'J', last: 'Lim', dob: '1991-12-05', gender: 'Female', position: 'Nursing Instructor', department: 'Arts and Science Department', dateHired: '2021-01-20', salary: 'SG-13', status: 'Active', type: 'Regular', email: 'sarah.l@benedicto.edu', phone: '0917-555-0109', leaveBalance: 12, sss: '34-7777777-7', philhealth: '12-777777777-7', pagibig: '7777-7777-7777', pin: '2023009', duties: 'Teaches nursing subjects and supervises clinical training.' },
+                { id: 'BC-2023-010', first: 'Mark', middle: 'A', last: 'Tan', dob: '1994-04-18', gender: 'Male', position: 'SHS Teacher', department: 'Education Department', dateHired: '2022-06-01', salary: 'SG-9', status: 'Active', type: 'Regular', email: 'mark.t@benedicto.edu', phone: '0917-555-0110', leaveBalance: 10, sss: '34-8888888-8', philhealth: '12-888888888-8', pagibig: '8888-8888-8888', pin: '2023010', duties: 'Teaches senior high school subjects and advises a section.' },
+        { id: 'BC-2023-011', first: 'Ramon', middle: 'D', last: 'Torres', dob: '1980-07-09', gender: 'Male', position: 'Maintenance Head', department: 'Facilities', dateHired: '2016-09-01', salary: 'SG-6', status: 'Active', type: 'Regular', email: 'ramon.t@benedicto.edu', phone: '0917-555-0111', leaveBalance: 15, sss: '34-9999999-9', philhealth: '12-999999999-9', pagibig: '9999-9999-9999', pin: '2023011', duties: 'Oversees campus maintenance, repairs, and custodial operations.' },
+        { id: 'BC-2023-012', first: 'Pedro', middle: 'M', last: 'Aquino', dob: '1991-02-27', gender: 'Male', position: 'Janitor', department: 'Facilities', dateHired: '2021-04-05', salary: 'SG-2', status: 'Active', type: 'Regular', email: 'pedro.a@benedicto.edu', phone: '0917-555-0112', leaveBalance: 15, sss: '34-1010101-0', philhealth: '12-101010101-0', pagibig: '1010-1010-1010', pin: '2023012', duties: 'Performs daily cleaning and upkeep of campus facilities.' }
       ]);
       console.log('✅ Employees seeded');
     }
 
-    const deptCount = await Department.countDocuments();
-    if (deptCount === 0) {
-      await Department.insertMany([
-        { name: 'College of Arts and Sciences', count: 0, detail: 'Liberal Arts, Natural Sciences, Communication, Psychology', status: 'Active' },
-        { name: 'College of Business and Management', count: 0, detail: 'Business Administration, Accountancy, Marketing, HRM, Entrepreneurship', status: 'Active' },
-        { name: 'College of Computer Studies', count: 0, detail: 'Information Technology, Computer Science, Animation, Multimedia', status: 'Active' },
-        { name: 'College of Education', count: 0, detail: 'Elementary Education, Secondary Education, Early Childhood', status: 'Active' },
-        { name: 'College of Engineering', count: 0, detail: 'Industrial, Mechanical, Civil, Electrical, Electronics Engineering', status: 'Active' },
-        { name: 'College of Hospitality Management', count: 0, detail: 'Hotel & Restaurant Management, Tourism, Culinary Arts', status: 'Active' },
-        { name: 'College of Nursing', count: 0, detail: 'Bachelor of Science in Nursing, Health Sciences', status: 'Active' },
-        { name: 'College of Criminology', count: 0, detail: 'Criminology, Forensic Science, Correctional Administration', status: 'Active' },
-        { name: 'Basic Education', count: 0, detail: 'Pre-school, Elementary, Junior High School (K-10)', status: 'Active' },
-        { name: 'Senior High School', count: 0, detail: 'ABM, HUMSS, STEM, GAS, TVL Tracks', status: 'Active' },
-        { name: 'Technical-Vocational', count: 0, detail: 'TESDA-accredited programs, Industrial Technology', status: 'Active' },
-        { name: 'Registrar', count: 0, detail: 'Student records, enrollment, and academic services', status: 'Active' },
-        { name: 'Finance', count: 0, detail: 'Accounting, budgeting, payroll, and financial services', status: 'Active' },
-        { name: 'Library', count: 0, detail: 'Learning resources, research support, digital archives', status: 'Active' },
-        { name: 'IT Services', count: 0, detail: 'Network, systems, technical support, and digital infrastructure', status: 'Active' },
-        { name: 'Human Resources', count: 0, detail: 'HR, personnel management, faculty and staff services', status: 'Active' },
-        { name: 'Guidance and Counseling', count: 0, detail: 'Student wellness, career guidance, and counseling services', status: 'Active' },
-        { name: 'Student Affairs', count: 0, detail: 'Student organizations, discipline, and campus life', status: 'Active' }
-      ]);
-      console.log('✅ Departments seeded');
+    
+    const desiredDepartments = [
+      { name: 'Tourism Department', detail: 'Tourism Management, Hospitality, Culinary Arts', status: 'Active', group: 'academic', head: 'Not Assigned' },
+      { name: 'Information Technology Department', detail: 'Information Technology, Computer Science, Animation, Multimedia', status: 'Active', group: 'academic', head: 'Not Assigned' },
+      { name: 'Accountancy Department', detail: 'Accountancy, Management Accounting, Internal Auditing', status: 'Active', group: 'academic', head: 'Not Assigned' },
+      { name: 'Business Department', detail: 'Business Administration, Marketing, HRM, Entrepreneurship', status: 'Active', group: 'academic', head: 'Not Assigned' },
+      { name: 'Engineering Department', detail: 'Industrial, Mechanical, Civil, Electrical, Electronics Engineering', status: 'Active', group: 'academic', head: 'Not Assigned' },
+      { name: 'Educational Department', detail: 'Elementary Education, Secondary Education, Early Childhood', status: 'Active', group: 'academic', head: 'Not Assigned' }
+    ];
+    for (const dept of desiredDepartments) {
+      await Department.updateOne(
+        { name: dept.name },
+        { $set: { detail: dept.detail, group: 'academic' }, $setOnInsert: { name: dept.name, count: 0, status: dept.status, head: dept.head } },
+        { upsert: true }
+      );
+    }
+
+    // Auto-register any employee department not already tracked, as an
+    // administrative/support unit.
+    const academicNames = desiredDepartments.map(d => d.name);
+    const distinctEmpDepts = await Employee.distinct('department');
+    for (const deptName of distinctEmpDepts) {
+      if (!deptName || academicNames.includes(deptName)) continue;
+      await Department.updateOne(
+        { name: deptName },
+        { $set: { group: 'admin' }, $setOnInsert: { name: deptName, count: 0, detail: 'Administrative / Support Unit', status: 'Active', head: 'Not Assigned' } },
+        { upsert: true }
+      );
+    }
+    // Make sure any pre-existing dept doc without a group tag gets one.
+    const untagged = await Department.find({ group: { $exists: false } });
+    for (const d of untagged) {
+      d.group = academicNames.includes(d.name) ? 'academic' : 'admin';
+      await d.save();
     }
 
     const leaveCount = await LeaveRequest.countDocuments();
     if (leaveCount === 0) {
       await LeaveRequest.insertMany([
-        { id: 1, name: 'Emma Santos', email: 'emma.santos@benedicto.edu', dept: 'Library', type: 'Sick Leave', dates: 'June 5 - June 6, 2028', reason: 'Doctor\'s appointment', status: 'Pending', daysRequested: 2 },
-        { id: 2, name: 'Jose Villanueva', email: 'jose.v@benedicto.edu', dept: 'Finance', type: 'Vacation Leave', dates: 'June 10 - June 14, 2028', reason: 'Family vacation', status: 'Pending', daysRequested: 5 },
-        { id: 3, name: 'Wilma Mondragon', email: 'wilma.m@benedicto.edu', dept: 'College of Business and Management', type: 'Emergency Leave', dates: 'August 18 - August 19, 2028', reason: 'Family emergency', status: 'Pending', daysRequested: 2 }
+        { id: 1, name: 'Emma Santos', email: 'emma.santos@benedicto.edu', dept: 'Arts and Science Department', type: 'Sick Leave', dates: 'June 5 - June 6, 2028', reason: 'Doctor\'s appointment', status: 'Pending', daysRequested: 2 },
+        { id: 2, name: 'Jose Villanueva', email: 'jose.v@benedicto.edu', dept: 'Business and Accountancy Department', type: 'Vacation Leave', dates: 'June 10 - June 14, 2028', reason: 'Family vacation', status: 'Pending', daysRequested: 5 },
+        { id: 3, name: 'Wilma Mondragon', email: 'wilma.m@benedicto.edu', dept: 'Business and Accountancy Department', type: 'Emergency Leave', dates: 'August 18 - August 19, 2028', reason: 'Family emergency', status: 'Pending', daysRequested: 2 }
       ]);
       console.log('✅ Leave requests seeded');
     }
@@ -184,7 +217,7 @@ async function seed() {
     const sepCount = await Separated.countDocuments();
     if (sepCount === 0) {
       await Separated.insertMany([
-        { id: 'BC-2023-007', first: 'Lorna', middle: 'T', last: 'Del Rosario', dob: '1989-04-12', gender: 'Female', position: 'Secretary', department: 'Registrar', dateHired: '2018-03-15', salary: 'SG-8', status: 'Inactive', type: 'Regular', email: 'lorna.d@benedicto.edu', phone: '0917-555-0107', regularization: '2019-03-15', yearsOfService: 6, resignDate: '2025-12-20', resignedBy: 'HR Admin' }
+        { id: 'BC-2023-099', first: 'Diana', middle: 'R', last: 'Gonzales', dob: '1986-02-14', gender: 'Female', position: 'HR Assistant', department: 'Business and Accountancy Department', dateHired: '2017-07-01', salary: 'SG-7', status: 'Inactive', type: 'Regular', email: 'diana.g@benedicto.edu', phone: '0917-555-0199', regularization: '2018-07-01', yearsOfService: 8, resignDate: '2025-11-15', resignedBy: 'HR Admin' }
       ]);
       console.log('✅ Separated employees seeded');
     }
@@ -230,7 +263,8 @@ async function seed() {
           strengths: 'Attendance Rate: 96%. Present: 24 days, Late: 1 days, Absent: 0 days. Strong subject knowledge, excellent student rapport, innovative teaching methods.',
           improvements: 'Attendance consistency during peak traffic hours, earlier submission of grade sheets.',
           goals: 'Maintain or improve attendance rate above 100%. Complete advanced certification by Q4 2026.',
-          evaluator: 'Dr. Maria Cruz', status: 'Finalized'
+          evaluator: 'Dr. Maria Cruz', status: 'Finalized',
+          attendanceSummary: { attendanceRate: 96, punctualityRate: 100, present: 24, late: 1, absent: 0, totalDays: 25 }
         },
         {
           employeeId: 'BC-2023-002', employeeName: 'Carlos D. Reyes', department: 'Library',
@@ -244,44 +278,57 @@ async function seed() {
           strengths: 'Attendance Rate: 82%. Present: 20 days, Late: 3 days, Absent: 2 days. Reliable in daily operations, friendly with students.',
           improvements: 'Employee was late 3 time(s). Punctuality needs improvement. Need more initiative in organizing library events.',
           goals: 'Maintain or improve attendance rate above 87%. Complete library management training by Q3 2026.',
-          evaluator: 'HR Admin', status: 'Finalized'
+          evaluator: 'HR Admin', status: 'Finalized',
+          attendanceSummary: { attendanceRate: 82, punctualityRate: 92, present: 20, late: 3, absent: 2, totalDays: 25 }
         }
       ]);
       console.log('✅ Reports seeded');
     }
 
     // Seed today's attendance
-    const today = new Date().toISOString().slice(0, 10);
-    const attCount = await AttendanceLog.countDocuments({ date: today });
-    if (attCount === 0) {
-      const emps = await Employee.find({ status: { $ne: 'On Leave' } });
-      const logs = emps.map((e, i) => ({
-        employeeId: e.id,
-        name: `${e.first} ${e.last}`,
-        department: e.department,
-        date: today,
-        timeIn: `0${7 + (i % 2)}:${String(45 + (i * 3) % 15).padStart(2, '0')} AM`,
-        timeOut: `05:0${i % 9} PM`,
-        status: i % 5 === 1 ? 'Late' : 'Present'
-      }));
-      await AttendanceLog.insertMany(logs);
-      console.log('✅ Today\'s attendance seeded');
-    }
+   // Seed today's attendance
   } catch (error) {
     console.error('Seed error:', error);
   }
 }
 seed();
 
+// Helper: case/whitespace-insensitive exact email match.
+// Prevents "record not found" / failed lookups caused by casing or stray
+// spaces between the User record and the Employee record.
+function emailMatch(email) {
+  const clean = String(email || '').trim();
+  return { $regex: new RegExp('^' + clean.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '$', 'i') };
+}
+
 // ─── Auth Routes ───
 app.post('/api/auth/login', async (req, res) => {
   try {
     const { email, password } = req.body;
-    const user = await User.findOne({ email, password });
+    const user = await User.findOne({ email: emailMatch(email), password });
     if (!user) return res.status(401).json({ error: 'Invalid email or password.' });
-    res.json({ user: { name: user.name, email: user.email, role: user.role }, token: 'demo-token-' + user._id });
+    res.json({ user: { name: user.name, email: user.email, role: user.role, phone: user.phone, position: user.position, photo: user.photo }, token: 'demo-token-' + user._id });
   } catch (error) {
     res.status(500).json({ error: 'Login failed' });
+  }
+});
+
+// Update a User account's own profile (used by the admin/HR "Edit Profile"
+// screen, which has no matching Employee record to update instead).
+app.put('/api/users/:email', async (req, res) => {
+  try {
+    const { name, email, phone, position, photo } = req.body;
+    const update = {};
+    if (name) update.name = name;
+    if (email) update.email = email;
+    if (phone !== undefined) update.phone = phone;
+    if (position !== undefined) update.position = position;
+    if (photo) update.photo = photo;
+    const updated = await User.findOneAndUpdate({ email: emailMatch(req.params.email) }, update, { new: true });
+    if (!updated) return res.status(404).json({ error: 'User account not found' });
+    res.json({ user: { name: updated.name, email: updated.email, role: updated.role, phone: updated.phone, position: updated.position, photo: updated.photo } });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to update user profile' });
   }
 });
 
@@ -291,6 +338,23 @@ app.get('/api/employees', async (req, res) => {
     res.json(await Employee.find());
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch employees' });
+  }
+});
+
+// TEMPORARY — delete after running once
+app.get('/api/dev/clear-today-attendance', async (req, res) => {
+  const today = new Date().toISOString().slice(0, 10);
+  const result = await AttendanceLog.deleteMany({ date: today });
+  res.json({ deleted: result.deletedCount });
+});
+
+app.get('/api/employees/by-email/:email', async (req, res) => {
+  try {
+    const emp = await Employee.findOne({ email: emailMatch(req.params.email) });
+    if (!emp) return res.status(404).json({ error: 'Employee not found' });
+    res.json(emp);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch employee' });
   }
 });
 
@@ -310,7 +374,7 @@ app.put('/api/employees/:id', async (req, res) => {
   try {
     const old = await Employee.findOne({ id: req.params.id });
     const updated = await Employee.findOneAndUpdate({ id: req.params.id }, req.body, { new: true });
-    if (old.department !== updated.department) {
+    if (old && updated && old.department !== updated.department) {
       await Department.updateOne({ name: old.department }, { $inc: { count: -1 } });
       await Department.updateOne({ name: updated.department }, { $inc: { count: 1 } });
     }
@@ -383,16 +447,61 @@ app.get('/api/separated', async (req, res) => {
 });
 
 // ─── Department Routes ───
+// Counts are computed live from current Employee records rather than a
+// stored counter, so they can never drift out of sync.
 app.get('/api/departments', async (req, res) => {
   try {
-    res.json(await Department.find());
+    const depts = await Department.find();
+    const emps = await Employee.find({ status: { $ne: 'Inactive' } });
+    const result = depts.map(d => {
+      const obj = d.toObject();
+      obj.count = emps.filter(e => e.department === d.name).length;
+      if (!obj.group) obj.group = ['Tourism Department','Information Technology Department','Accountancy Department','Business Department','Engineering Department','Educational Department'].includes(d.name) ? 'academic' : 'admin';
+      return obj;
+    });
+    res.json(result);
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch departments' });
   }
 });
 
+// Create a new department (used by the "+ Add Department" button)
+app.post('/api/departments', async (req, res) => {
+  try {
+    const { name, detail, status, head, group } = req.body;
+    if (!name) return res.status(400).json({ error: 'Department name is required' });
+    const existing = await Department.findOne({ name });
+    if (existing) return res.status(400).json({ error: 'A department with that name already exists' });
+    const dept = new Department({
+      name, detail: detail || '', status: status || 'Active',
+      head: head || 'Not Assigned', group: group || 'admin', count: 0
+    });
+    await dept.save();
+    await Activity.create({ icon: 'fa-building', text: `New department "${name}" was added`, when: 'just now' });
+    res.status(201).json(dept);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to create department' });
+  }
+});
+
+// Edit an existing department's detail / status / head
+app.put('/api/departments/:name', async (req, res) => {
+  try {
+    const { detail, status, head, group } = req.body;
+    const update = {};
+    if (detail !== undefined) update.detail = detail;
+    if (status !== undefined) update.status = status;
+    if (head !== undefined) update.head = head;
+    if (group !== undefined) update.group = group;
+    const updated = await Department.findOneAndUpdate({ name: req.params.name }, update, { new: true });
+    if (!updated) return res.status(404).json({ error: 'Department not found' });
+    res.json(updated);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to update department' });
+  }
+});
+
 // ─── Leave Routes ───
-// Get all leave requests
 app.get('/api/leave-requests', async (req, res) => {
   try {
     const requests = await LeaveRequest.find().sort({ id: -1 });
@@ -402,18 +511,16 @@ app.get('/api/leave-requests', async (req, res) => {
   }
 });
 
-// Get leave requests for a specific employee
 app.get('/api/leave-requests/employee/:email', async (req, res) => {
   try {
     const { email } = req.params;
-    const requests = await LeaveRequest.find({ email }).sort({ id: -1 });
+    const requests = await LeaveRequest.find({ email: emailMatch(email) }).sort({ id: -1 });
     res.json(requests);
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch employee leave requests' });
   }
 });
 
-// Get a specific leave request by ID
 app.get('/api/leave-requests/:id', async (req, res) => {
   try {
     const request = await LeaveRequest.findById(req.params.id);
@@ -424,7 +531,6 @@ app.get('/api/leave-requests/:id', async (req, res) => {
   }
 });
 
-// Employee submits a new leave request (with balance check)
 app.post('/api/leave-requests/submit', async (req, res) => {
   console.log('📝 Received leave request:', req.body);
   try {
@@ -437,7 +543,6 @@ app.post('/api/leave-requests/submit', async (req, res) => {
       });
     }
 
-    // Calculate days requested
     let daysRequested = 1;
     if (startDate && endDate) {
       const start = new Date(startDate);
@@ -446,9 +551,10 @@ app.post('/api/leave-requests/submit', async (req, res) => {
       daysRequested = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
     }
 
-    // Find employee and check balance
-    const emp = await Employee.findOne({ email });
-    if (!emp) return res.status(404).json({ error: 'Employee not found' });
+    // Case/whitespace-insensitive lookup — this is what was causing
+    // "Employee not found" and silently blocking the submission before.
+    const emp = await Employee.findOne({ email: emailMatch(email) });
+    if (!emp) return res.status(404).json({ error: 'Employee not found for email: ' + email });
 
     if (emp.leaveBalance < daysRequested) {
       return res.status(400).json({ 
@@ -456,11 +562,9 @@ app.post('/api/leave-requests/submit', async (req, res) => {
       });
     }
 
-    // Deduct balance
     emp.leaveBalance -= daysRequested;
     await emp.save();
 
-    // Generate new ID
     const lastRequest = await LeaveRequest.findOne().sort({ id: -1 });
     const newId = lastRequest ? lastRequest.id + 1 : 1;
 
@@ -499,7 +603,6 @@ app.post('/api/leave-requests/submit', async (req, res) => {
   }
 });
 
-// Admin updates leave request status (approve/reject)
 app.put('/api/leave-requests/:id', async (req, res) => {
   try {
     const { status } = req.body;
@@ -521,7 +624,6 @@ app.put('/api/leave-requests/:id', async (req, res) => {
   }
 });
 
-// Admin creates a leave request (alternative method)
 app.post('/api/leave-requests', async (req, res) => {
   try {
     const lr = new LeaveRequest(req.body);
@@ -533,7 +635,6 @@ app.post('/api/leave-requests', async (req, res) => {
   }
 });
 
-// Delete a leave request
 app.delete('/api/leave-requests/:id', async (req, res) => {
   try {
     await LeaveRequest.findByIdAndDelete(req.params.id);
@@ -582,12 +683,9 @@ app.get('/api/attendance', async (req, res) => {
   }
 });
 
-// Get attendance statistics for an employee (for report generation)
 app.get('/api/attendance/stats/:employeeId', async (req, res) => {
   try {
     const { employeeId } = req.params;
-
-    // Get all attendance logs for this employee
     const logs = await AttendanceLog.find({ employeeId }).sort({ date: -1 });
 
     const total = logs.length;
@@ -595,11 +693,9 @@ app.get('/api/attendance/stats/:employeeId', async (req, res) => {
     const late = logs.filter(l => l.status === 'Late').length;
     const absent = logs.filter(l => l.status === 'Absent').length;
 
-    // Calculate ratings based on attendance (1-5 scale)
     const attendanceRate = total > 0 ? (present / total) * 100 : 0;
     const punctualityRate = total > 0 ? ((present + late) / total) * 100 : 0;
 
-    // Map to 1-5 rating
     const rateToScore = (rate) => {
       if (rate >= 95) return 5;
       if (rate >= 85) return 4;
@@ -619,13 +715,41 @@ app.get('/api/attendance/stats/:employeeId', async (req, res) => {
         punctuality: rateToScore(100 - ((late / (total || 1)) * 100)),
         professionalism: rateToScore(attendanceRate),
         reliability: rateToScore(attendanceRate),
-        collaboration: 3 // neutral default
+        collaboration: 3
       }
     };
 
     res.json(stats);
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch attendance stats' });
+  }
+});
+
+// Attendance summary across all employees, grouped by day, for the last
+// N days (default 7) — powers the admin dashboard's attendance chart with
+// real data instead of hardcoded numbers.
+app.get('/api/attendance/overview', async (req, res) => {
+  try {
+    const days = parseInt(req.query.days) || 7;
+    const activeCount = await Employee.countDocuments({ status: { $ne: 'Inactive' } });
+    const dateList = [];
+    for (let i = days - 1; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      dateList.push(d.toISOString().slice(0, 10));
+    }
+    const logs = await AttendanceLog.find({ date: { $in: dateList } });
+    const overview = dateList.map(date => {
+      const dayLogs = logs.filter(l => l.date === date);
+      const present = dayLogs.filter(l => l.status === 'Present').length;
+      const late = dayLogs.filter(l => l.status === 'Late').length;
+      const loggedCount = dayLogs.length;
+      const absent = Math.max(activeCount - present - late, 0);
+      return { date, present, late, absent: loggedCount > 0 || date === new Date().toISOString().slice(0,10) ? absent : 0 };
+    });
+    res.json(overview);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch attendance overview' });
   }
 });
 
@@ -645,7 +769,7 @@ app.post('/api/attendance/scan', async (req, res) => {
     if (!log.timeIn) {
       log.timeIn = timeStr;
       const hourFloat = now.getHours() + now.getMinutes() / 60;
-      log.status = hourFloat > 8.25 ? 'Late' : 'Present';
+      log.status = hourFloat > 8 ? 'Late' : 'Present';
       action = 'Time In Recorded';
       await Activity.create({ icon: 'fa-fingerprint', text: `${log.name} clocked in (${log.status})`, when: 'just now' });
     } else if (!log.timeOut) {
@@ -659,6 +783,102 @@ app.post('/api/attendance/scan', async (req, res) => {
     res.json({ action, name: log.name, time: timeStr, log });
   } catch (error) {
     res.status(500).json({ error: 'Failed to process scan' });
+  }
+});
+
+// ─── Explicit Time In / Time Out (used by the post-login attendance screen) ───
+app.get('/api/attendance/today/:employeeId', async (req, res) => {
+  try {
+    const date = new Date().toISOString().slice(0, 10);
+    const log = await AttendanceLog.findOne({ employeeId: req.params.employeeId, date });
+    res.json(log || null);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch today\'s attendance' });
+  }
+});
+
+// Full daily status for every active employee — fills in "Absent" for
+// anyone who never timed in once the 5:00 PM cutoff has passed, without
+// needing a cron job or altering stored logs.
+app.get('/api/attendance/status-today', async (req, res) => {
+  try {
+    const date = new Date().toISOString().slice(0, 10);
+    const now = new Date();
+    const pastCutoff = now.getHours() >= 17; // 5:00 PM
+
+    const emps = await Employee.find({ status: { $ne: 'Inactive' } });
+    const logs = await AttendanceLog.find({ date });
+    const logMap = {};
+    logs.forEach(l => { logMap[l.employeeId] = l; });
+
+    const result = emps.map(e => {
+      const log = logMap[e.id];
+      if (e.status === 'On Leave') {
+        return { employeeId: e.id, name: `${e.first} ${e.last}`, department: e.department, timeIn: null, timeOut: null, status: 'On Leave' };
+      }
+      if (log && log.timeIn) {
+        return { employeeId: e.id, name: log.name, department: log.department, timeIn: log.timeIn, timeOut: log.timeOut, status: log.status };
+      }
+      if (pastCutoff) {
+        return { employeeId: e.id, name: `${e.first} ${e.last}`, department: e.department, timeIn: null, timeOut: null, status: 'Absent' };
+      }
+      return { employeeId: e.id, name: `${e.first} ${e.last}`, department: e.department, timeIn: null, timeOut: null, status: 'Not Yet Timed In' };
+    });
+
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch attendance status' });
+  }
+});
+
+app.post('/api/attendance/time-in', async (req, res) => {
+  try {
+    const { employeeId } = req.body;
+    const emp = await Employee.findOne({ id: employeeId });
+    if (!emp) return res.status(404).json({ error: 'Employee not found' });
+
+    const date = new Date().toISOString().slice(0, 10);
+    let log = await AttendanceLog.findOne({ employeeId, date });
+    if (log && log.timeIn) {
+      return res.status(400).json({ error: 'You have already timed in today.', log });
+    }
+    const now = new Date();
+    const timeStr = formatTime(now);
+    if (!log) {
+      log = new AttendanceLog({ employeeId, name: `${emp.first} ${emp.last}`, department: emp.department, date, timeIn: null, timeOut: null, status: 'Present' });
+    }
+    log.timeIn = timeStr;
+    const hourFloat = now.getHours() + now.getMinutes() / 60;
+    log.status = hourFloat > 8.25 ? 'Late' : 'Present';
+    await log.save();
+    await Activity.create({ icon: 'fa-fingerprint', text: `${log.name} timed in (${log.status})`, when: 'just now' });
+    res.json({ action: 'Time In Recorded', name: log.name, time: timeStr, status: log.status, log });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to record time in' });
+  }
+});
+
+app.post('/api/attendance/time-out', async (req, res) => {
+  try {
+    const { employeeId } = req.body;
+    const emp = await Employee.findOne({ id: employeeId });
+    if (!emp) return res.status(404).json({ error: 'Employee not found' });
+
+    const date = new Date().toISOString().slice(0, 10);
+    let log = await AttendanceLog.findOne({ employeeId, date });
+    if (!log || !log.timeIn) {
+      return res.status(400).json({ error: 'You need to time in first before timing out.' });
+    }
+    if (log.timeOut) {
+      return res.status(400).json({ error: 'You have already timed out today.', log });
+    }
+    const timeStr = formatTime(new Date());
+    log.timeOut = timeStr;
+    await log.save();
+    await Activity.create({ icon: 'fa-fingerprint', text: `${log.name} timed out`, when: 'just now' });
+    res.json({ action: 'Time Out Recorded', name: log.name, time: timeStr, log });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to record time out' });
   }
 });
 
@@ -748,26 +968,8 @@ app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
 
 const PORT = process.env.PORT || 3000;
 
-// Helper to show local IP for other devices
-function getLocalIP() {
-  const interfaces = os.networkInterfaces();
-  for (const name of Object.keys(interfaces)) {
-    for (const iface of interfaces[name]) {
-      if (iface.family === 'IPv4' && !iface.internal) {
-        return iface.address;
-      }
-    }
-  }
-  return 'localhost';
-}
-
-app.listen(PORT, '0.0.0.0', () => {
-  const localIP = getLocalIP();
-  console.log(`🚀 Server running on port ${PORT}`);
-  console.log(`📡 Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`\n🌐 Access the app locally:    http://localhost:${PORT}`);
-  console.log(`🌐 Access from other devices: http://${localIP}:${PORT}\n`);
-  console.log('⚠️  IMPORTANT: Make sure your frontend uses RELATIVE paths like /api/auth/login');
-  console.log('   (NOT http://localhost:3000/api/auth/login)\n');
+app.listen(PORT, () => {
+  console.log(`✅ HR System running on port ${PORT}`);
 });
 
+module.exports = app;
