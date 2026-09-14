@@ -772,10 +772,13 @@ app.post('/api/attendance/scan', async (req, res) => {
       log.status = hourFloat > 8 ? 'Late' : 'Present';
       action = 'Time In Recorded';
       await Activity.create({ icon: 'fa-fingerprint', text: `${log.name} clocked in (${log.status})`, when: 'just now' });
-    } else if (!log.timeOut) {
+        } else if (!log.timeOut) {
       log.timeOut = timeStr;
+      const outHourFloat = now.getHours() + now.getMinutes() / 60;
+      const isUndertime = outHourFloat < 18; // before 6:00 PM
+      if (isUndertime) log.status = 'Undertime';
       action = 'Time Out Recorded';
-      await Activity.create({ icon: 'fa-fingerprint', text: `${log.name} clocked out`, when: 'just now' });
+      await Activity.create({ icon: 'fa-fingerprint', text: `${log.name} clocked out${isUndertime ? ' (Undertime)' : ''}`, when: 'just now' });
     } else {
       action = 'Already Completed Today';
     }
@@ -872,13 +875,46 @@ app.post('/api/attendance/time-out', async (req, res) => {
     if (log.timeOut) {
       return res.status(400).json({ error: 'You have already timed out today.', log });
     }
-    const timeStr = formatTime(new Date());
+        const now = new Date();
+    const timeStr = formatTime(now);
     log.timeOut = timeStr;
+    const outHourFloat = now.getHours() + now.getMinutes() / 60;
+    const isUndertime = outHourFloat < 18;
+    if (isUndertime) log.status = 'Undertime';
     await log.save();
-    await Activity.create({ icon: 'fa-fingerprint', text: `${log.name} timed out`, when: 'just now' });
-    res.json({ action: 'Time Out Recorded', name: log.name, time: timeStr, log });
+    await Activity.create({ icon: 'fa-fingerprint', text: `${log.name} timed out${isUndertime ? ' (Undertime)' : ''}`, when: 'just now' });
+    res.json({ action: 'Time Out Recorded', name: log.name, time: timeStr, status: log.status, log });
   } catch (error) {
     res.status(500).json({ error: 'Failed to record time out' });
+  }
+});
+
+// ─── Attendance Archive (by month) ───
+// Counts of attendance rows per month, for the "Jan–Dec" archive dropdown.
+app.get('/api/attendance/archive/months', async (req, res) => {
+  try {
+    const year = parseInt(req.query.year) || new Date().getFullYear();
+    const logs = await AttendanceLog.find({ date: { $regex: '^' + year } }, { date: 1 });
+    const counts = {};
+    logs.forEach(l => {
+      const key = (l.date || '').slice(0, 7); // "YYYY-MM"
+      if (key) counts[key] = (counts[key] || 0) + 1;
+    });
+    res.json({ year, counts });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch attendance archive months' });
+  }
+});
+
+// Full attendance records for one specific "YYYY-MM" month.
+app.get('/api/attendance/archive/:month', async (req, res) => {
+  try {
+    const month = req.params.month;
+    if (!/^\d{4}-\d{2}$/.test(month)) return res.status(400).json({ error: 'Invalid month format, expected YYYY-MM' });
+    const logs = await AttendanceLog.find({ date: { $regex: '^' + month } }).sort({ date: -1 });
+    res.json(logs);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch archived attendance' });
   }
 });
 
