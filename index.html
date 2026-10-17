@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Benedicto College – HR Management</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap');
@@ -708,6 +709,43 @@
     @media (max-width: 1100px) { .info-cards { grid-template-columns: repeat(2, 1fr); } .emp-info-grid { grid-template-columns: 1fr; } }
     @media (max-width: 768px) { .info-cards { grid-template-columns: 1fr; } .info-row { grid-template-columns: 1fr; } .report-categories { grid-template-columns: 1fr; } }
 
+    /* ─── Login: live clock card (replaces the old quick time in/out) ─── */
+.auth-live-clock { position: relative; z-index: 1; width: 100%; max-width: 300px; margin: 28px auto 0; }
+.auth-live-clock .day-card {
+  background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.14);
+  border-radius: 16px; padding: 16px 18px; color: #fff;
+}
+
+/* ─── Employee sidebar: Quick Time In / Out (glass card style) ─── */
+.sb-quick {
+  background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.14);
+  border-radius: 16px; padding: 14px 14px 12px; margin-bottom: 12px;
+}
+.sb-quick-label {
+  font-family: 'Poppins', sans-serif; font-weight: 700; font-size: 10px;
+  text-transform: uppercase; letter-spacing: 0.9px; color: var(--gold);
+  text-align: center; margin-bottom: 10px;
+}
+.sb-quick-btns { display: flex; gap: 9px; }
+.sb-quick-btn {
+  flex: 1; padding: 10px 8px; border-radius: 10px; border: none; font-weight: 700; font-size: 11.5px;
+  cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px;
+  transition: all 0.15s; font-family: inherit;
+}
+.sb-quick-btn i { font-size: 14px; }
+.sb-quick-btn.in  { background: #26533b; color: #d9f7e3; }
+.sb-quick-btn.in:hover:not(:disabled)  { background: var(--green); color: #fff; transform: translateY(-2px); }
+.sb-quick-btn.out { background: #542722; color: #f7dcd9; }
+.sb-quick-btn.out:hover:not(:disabled) { background: var(--red); color: #fff; transform: translateY(-2px); }
+.sb-quick-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+.sb-quick-status { margin-top: 9px; font-size: 10.5px; color: rgba(255,255,255,0.72); text-align: center; min-height: 14px; line-height: 1.4; }
+.sb-quick-status strong { color: #fff; }
+
+/* ─── Live clock on top of the sidebar Quick Time In / Out ─── */
+.sb-clock-row { display: flex; align-items: baseline; justify-content: center; gap: 7px; margin-bottom: 2px; }
+.sb-clock { font-family: 'Poppins', sans-serif; font-weight: 800; font-size: 22px; letter-spacing: 0.5px; color: #fff; }
+.sb-ampm { font-size: 10px; font-weight: 700; color: var(--gold); letter-spacing: 1.4px; }
+.sb-date { text-align: center; font-size: 10px; color: rgba(255,255,255,0.55); margin-bottom: 10px; font-weight: 500; }
   </style>
 <base target="_blank">
 </head>
@@ -726,19 +764,23 @@
       </div>
       <nav class="sidenav" id="sidenav"></nav>
       <div class="sidebar-foot">
-        <div class="day-card">
-          <div class="ic"><i class="fas fa-calendar-day"></i></div>
-          <div>
-            <div class="date" style="opacity:.7">Today is</div>
-            <div class="day" id="curDay">-</div>
-            <div class="date" id="curDate">-</div>
-          </div>
-          <div style="margin-left:auto;text-align:right;">
-            <div class="time" id="curTime">-</div>
-            <div class="ampm" id="curAmpm">-</div>
-          </div>
-        </div>
-      </div>
+  <div class="sb-quick" id="sidebarQuickAttendance" style="display:none;">
+  <div class="sb-clock-row">
+    <span class="sb-clock" id="sbClock">--:--:--</span>
+    <span class="sb-ampm" id="sbAmpm">--</span>
+  </div>
+  <div class="sb-date" id="sbDate">-</div>
+  <div class="sb-quick-label">Quick Time In / Time Out</div>
+  <div class="sb-quick-btns">
+    <button type="button" class="sb-quick-btn in" id="sbInBtn" onclick="sidebarQuickAttendance('in')">
+      <i class="fas fa-right-to-bracket"></i> Time In
+    </button>
+    <button type="button" class="sb-quick-btn out" id="sbOutBtn" onclick="sidebarQuickAttendance('out')">
+      <i class="fas fa-right-from-bracket"></i> Time Out
+    </button>
+  </div>
+  <div class="sb-quick-status" id="sbQuickStatus">Tap Time In to start your day.</div>
+</div>
     </aside>
 
     <div id="main">
@@ -844,6 +886,10 @@
     let attendanceArchiveMonth = null;  // null = live "Today" view, or a "YYYY-MM" key
     let attendanceArchiveBuckets = [];  // [{key, label, count}] Jan–Dec of current year
     let attendanceArchiveLogs = [];     // records loaded for the selected archived month
+    let myAttendanceMonth = null;   // "YYYY-MM" currently shown on the employee attendance page
+    let myAttendanceBuckets = [];   // [{key, year, label, count}] every month that has records
+    let myAttendanceLogs = [];      // records of the selected month
+    let biometricImports = [];
     let attendanceChart = null;
 
     const $ = id => document.getElementById(id);
@@ -900,31 +946,71 @@
       }
     }
 
-    function todayStr() { return new Date().toISOString().slice(0, 10); }
+    // ═══ PHILIPPINE TIME — synced from the server, ignores the laptop's clock ═══
+const PH_TZ = 'Asia/Manila';
+const phClock = { baseMs: Date.now(), basePerf: performance.now() };
 
-    function formatTime(d) {
-      let h = d.getHours();
-      const ampm = h >= 12 ? 'PM' : 'AM';
-      h = h % 12 || 12;
-      const m = String(d.getMinutes()).padStart(2, '0');
-      return `${h}:${m} ${ampm}`;
-    }
+// performance.now() is a monotonic timer: changing the laptop date/time does not affect it
+function phNowMs() { return phClock.baseMs + (performance.now() - phClock.basePerf); }
 
-    function tickClock() {
-      const now = new Date();
-      const days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-      const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-      $('curDay').textContent = days[now.getDay()];
-      $('curDate').textContent = months[now.getMonth()] + ' ' + now.getDate() + ', ' + now.getFullYear();
-      let h = now.getHours();
-      const ampm = h >= 12 ? 'PM' : 'AM';
-      h = h % 12 || 12;
-      const m = String(now.getMinutes()).padStart(2, '0');
-      $('curTime').textContent = h + ':' + m;
-      $('curAmpm').textContent = ampm;
-    }
-    tickClock();
-    setInterval(tickClock, 30000);
+async function syncPhTime() {
+  try {
+    const t0 = performance.now();
+    const data = await fetch(`${API_BASE_URL}/time`, { cache: 'no-store' }).then(r => r.json());
+    const t1 = performance.now();
+    if (!data || !data.serverMs) return;
+    phClock.baseMs = data.serverMs + (t1 - t0) / 2;
+    phClock.basePerf = t1;
+  } catch (e) { /* keep last known time */ }
+}
+
+const _phFmt = new Intl.DateTimeFormat('en-US', {
+  timeZone: PH_TZ, weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
+  hour: 'numeric', minute: '2-digit', hour12: true
+});
+const _phDateFmt = new Intl.DateTimeFormat('en-CA', { timeZone: PH_TZ, year: 'numeric', month: '2-digit', day: '2-digit' });
+
+function phParts() {
+  const p = {};
+  _phFmt.formatToParts(new Date(phNowMs())).forEach(x => { p[x.type] = x.value; });
+  return p;
+}
+function phDateKey() { return _phDateFmt.format(new Date(phNowMs())); } // YYYY-MM-DD (Philippine date)
+function todayStr() { return phDateKey(); }
+
+const _phSecFmt = new Intl.DateTimeFormat('en-US', {
+  timeZone: PH_TZ, hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true
+});
+const _phShortDateFmt = new Intl.DateTimeFormat('en-US', {
+  timeZone: PH_TZ, weekday: 'long', month: 'long', day: 'numeric'
+});
+
+function tickSidebarQuickClock() {
+  const clockEl = document.getElementById('sbClock');
+  if (!clockEl) return;
+  const d = new Date(phNowMs());
+  const p = {};
+  _phSecFmt.formatToParts(d).forEach(x => { p[x.type] = x.value; });
+  clockEl.textContent = `${p.hour}:${p.minute}:${p.second}`;
+  document.getElementById('sbAmpm').textContent = p.dayPeriod;
+  document.getElementById('sbDate').textContent = _phShortDateFmt.format(d);
+}
+
+function tickClock() {
+  const p = phParts();
+  const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+  const dateText = `${p.month} ${p.day}, ${p.year}`;
+  const timeText = `${p.hour}:${p.minute}`;
+  // sidebar (portal)
+  set('curDay', p.weekday); set('curDate', dateText); set('curTime', timeText); set('curAmpm', p.dayPeriod);
+  // login page
+  set('authDay', p.weekday); set('authDate', dateText); set('authTime', timeText); set('authAmpm', p.dayPeriod);
+}
+tickClock();
+tickSidebarQuickClock();
+setInterval(tickClock, 1000);
+syncPhTime().then(tickClock);
+setInterval(syncPhTime, 5 * 60 * 1000);
 
     window.handlePhotoUpload = function(input, key) {
       const file = input.files && input.files[0];
@@ -977,6 +1063,7 @@
       renderPage();
       renderSidebar();
       renderNotifications();
+      tickSidebarQuickClock();
       refreshTopbarAvatar();
     }
 
@@ -1027,7 +1114,7 @@
 
     let authClockTimer = null;
 
-    function tickAuthClock() {
+    function tickAuthClock() { tickClock(); } {
       const now = new Date();
       let h = now.getHours();
       const ampm = h >= 12 ? 'PM' : 'AM';
@@ -1042,117 +1129,114 @@
       if (dateEl) dateEl.textContent = now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
     }
 
-    async function quickAttendanceAction() {
-      const input = document.getElementById('aqaEmpId');
-      const statusEl = document.getElementById('aqaStatus');
-      const inBtn = document.getElementById('aqaInBtn');
-      const outBtn = document.getElementById('aqaOutBtn');
-      const empId = input ? input.value.trim().toUpperCase() : '';
+    // Enables/disables the buttons based on today's record
+function refreshSidebarQuick() {
+  const inBtn = document.getElementById('sbInBtn');
+  const outBtn = document.getElementById('sbOutBtn');
+  const statusEl = document.getElementById('sbQuickStatus');
+  if (!inBtn || !outBtn || !currentUser || currentUser.role !== 'employee') return;
+  const emp = getCurrentEmployee();
+  if (!emp) return;
+  const log = attendanceLogs.find(l => l.employeeId === emp.id && l.date === todayStr());
+  inBtn.disabled = !!(log && log.timeIn);
+  outBtn.disabled = !(log && log.timeIn) || !!(log && log.timeOut);
+  if (!log || !log.timeIn) statusEl.textContent = 'Tap Time In to start your day.';
+  else if (!log.timeOut) statusEl.innerHTML = `Timed in at <strong>${log.timeIn}</strong>${log.status ? ' · ' + log.status : ''}`;
+  else statusEl.innerHTML = `Done for today · <strong>${log.timeIn}</strong> – <strong>${log.timeOut}</strong>`;
+}
 
-      if (!empId) {
-        if (statusEl) statusEl.innerHTML = '<span style="color:#f7b7b0;">Please enter your Employee ID.</span>';
-        return;
-      }
+window.sidebarQuickAttendance = async function(kind) {
+  const statusEl = document.getElementById('sbQuickStatus');
+  const inBtn = document.getElementById('sbInBtn');
+  const outBtn = document.getElementById('sbOutBtn');
+  const emp = getCurrentEmployee();
+  if (!emp) { statusEl.innerHTML = '<span style="color:#f7b7b0;">Employee record not found.</span>'; return; }
 
-      if (inBtn) inBtn.disabled = true;
-      if (outBtn) outBtn.disabled = true;
-      if (statusEl) statusEl.textContent = 'Recording…';
-
-      try {
-        const res = await fetch(`${API_BASE_URL}/attendance/scan`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ employeeId: empId })
-        });
-        let data;
-        try { data = await res.json(); }
-        catch (parseErr) { throw new Error(`Server returned non-JSON (status ${res.status})`); }
-
-        if (!res.ok) {
-          if (statusEl) statusEl.innerHTML = `<span style="color:#f7b7b0;">${data.error || 'Employee ID not found.'}</span>`;
-          return;
-        }
-
-        if (statusEl) statusEl.innerHTML = `<strong>${data.action}</strong> — ${data.name} at ${data.time}`;
-        if (input) input.value = '';
-      } catch (err) {
-        console.error('Quick attendance failed:', err);
-        if (statusEl) statusEl.innerHTML = `<span style="color:#f7b7b0;">${err.message || 'Failed to connect to server.'}</span>`;
-      } finally {
-        if (inBtn) inBtn.disabled = false;
-        if (outBtn) outBtn.disabled = false;
-      }
+  inBtn.disabled = true; outBtn.disabled = true;
+  statusEl.textContent = 'Recording…';
+  try {
+    const res = await fetch(`${API_BASE_URL}/attendance/${kind === 'in' ? 'time-in' : 'time-out'}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ employeeId: emp.id })
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      statusEl.innerHTML = `<span style="color:#f7b7b0;">${data.error || 'Failed to record.'}</span>`;
+      refreshSidebarQuick();
+      return;
     }
-    window.handleQuickTimeIn = quickAttendanceAction;
-    window.handleQuickTimeOut = quickAttendanceAction;
-
+    try { todayAttendanceStatus = await fetch(`${API_BASE_URL}/attendance/status-today`).then(r => r.json()); } catch (e) {}
+        await reloadAndRender();
+    if (currentPage === 'attendance') { await loadMyAttendance(myAttendanceMonth); renderPage(); }
+    statusEl.innerHTML = `<strong>${data.action}</strong><br>${data.time}${data.status ? ' · ' + data.status : ''}`;
+  } catch (err) {
+    statusEl.innerHTML = '<span style="color:#f7b7b0;">Failed to connect to server.</span>';
+    refreshSidebarQuick();
+  }
+};
     function renderAuthPage() {
-      authContainer.style.display = 'block';
-      appContainer.style.display = 'none';
-      authContainer.innerHTML = `
-        <div class="auth-page">
-          <div class="auth-brand-panel">
-            <div class="auth-brand-content">
-              <div class="auth-logo-circle"><img src="public/image.jpg.png" alt="Benedicto College Logo" /></div>
-              <div class="auth-brand-name">BENEDICTO<br/>COLLEGE</div>
-              <div class="auth-brand-tagline">MAIN CAMPUS</div>
-              <h1 class="auth-hero-title">BENEDUPORTAL</h1>
-              <div class="auth-hero-rule"></div>
-              <p class="auth-hero-sub">Your hub for HR services, announcements, and important resources.</p>
+  authContainer.style.display = 'block';
+  appContainer.style.display = 'none';
+  authContainer.innerHTML = `
+    <div class="auth-page">
+      <div class="auth-brand-panel">
+        <div class="auth-brand-content">
+          <div class="auth-logo-circle"><img src="public/image.jpg.png" alt="Benedicto College Logo" /></div>
+          <div class="auth-brand-name">BENEDICTO<br/>COLLEGE</div>
+          <div class="auth-brand-tagline">MAIN CAMPUS</div>
+          <h1 class="auth-hero-title">BENEDUPORTAL</h1>
+          <div class="auth-hero-rule"></div>
+          <p class="auth-hero-sub">Your hub for HR services, announcements, and important resources.</p>
+        </div>
+
+        <div class="auth-live-clock">
+          <div class="day-card">
+            <div class="ic"><i class="fas fa-calendar-day"></i></div>
+            <div>
+              <div class="date" style="opacity:.7">Today is</div>
+              <div class="day" id="authDay">-</div>
+              <div class="date" id="authDate">-</div>
             </div>
-            <div class="auth-quick-attendance">
-              <div class="aqa-clock-row">
-                <span class="aqa-clock" id="aqaClock">--:--:--</span>
-                <span class="aqa-ampm" id="aqaAmpm">--</span>
-              </div>
-              <div class="aqa-date" id="aqaDate">-</div>
-              <div class="aqa-label">Quick Time In / Time Out</div>
-              <input type="text" id="aqaEmpId" class="aqa-input" placeholder="Enter Employee ID" />
-              <div class="aqa-btn-row">
-                <button type="button" class="aqa-btn aqa-in" id="aqaInBtn" onclick="handleQuickTimeIn()">
-                  <i class="fas fa-right-to-bracket"></i> Time In
-                </button>
-                <button type="button" class="aqa-btn aqa-out" id="aqaOutBtn" onclick="handleQuickTimeOut()">
-                  <i class="fas fa-right-from-bracket"></i> Time Out
-                </button>
-              </div>
-              <div class="aqa-status" id="aqaStatus">Enter your Employee ID above.</div>
-            </div>
-          </div>
-          <div class="auth-form-panel">
-            <div class="auth-card">
-              <div class="auth-lock-badge"><i class="fas fa-lock"></i></div>
-              <h2>Welcome Back!</h2>
-              <p class="sub">Please login to your account</p>
-              <div class="error-msg" id="authError"></div>
-              <form id="authForm" onsubmit="handleAuthSubmit(event)">
-                <div class="field">
-                  <label>Username</label>
-                  <input type="text" id="authEmail" placeholder="Enter your username" required />
-                </div>
-                <div class="field">
-                  <label>Password</label>
-                  <div style="position:relative;">
-                    <input type="password" id="authPassword" placeholder="Enter your password" required minlength="6" style="padding-right:42px;" />
-                    <button type="button" onclick="togglePasswordVisibility()" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--sub);cursor:pointer;font-size:14px;">
-                      <i class="fas fa-eye" id="pwToggleIcon"></i>
-                    </button>
-                  </div>
-                </div>
-                <button type="submit" class="btn">Login</button>
-              </form>
-                <p style="text-align:center;margin-top:14px;">
-                <a href="#" onclick="event.preventDefault(); showToast('Please contact the HR Office to reset your password.', 'fa-circle-info');" style="font-size:12.5px;color:var(--navy-light);font-weight:600;text-decoration:none;">Forgot your password?</a>
-              </p>
-              <div class="auth-copyright">Benedicto College Human Resources Department</div>
+            <div style="margin-left:auto;text-align:right;">
+              <div class="time" id="authTime">-</div>
+              <div class="ampm" id="authAmpm">-</div>
             </div>
           </div>
         </div>
-      `;
-      clearInterval(authClockTimer);
-      tickAuthClock();
-      authClockTimer = setInterval(tickAuthClock, 1000);
-    }
+      </div><!-- ✅ brand panel now properly closed -->
+
+      <div class="auth-form-panel">
+        <div class="auth-card">
+          <div class="auth-lock-badge"><i class="fas fa-lock"></i></div>
+          <h2>Welcome Back!</h2>
+          <p class="sub">Please login to your account</p>
+          <div class="error-msg" id="authError"></div>
+          <form id="authForm" onsubmit="handleAuthSubmit(event)">
+            <div class="field">
+              <label>Username</label>
+              <input type="text" id="authEmail" placeholder="Enter your username" required />
+            </div>
+            <div class="field">
+              <label>Password</label>
+              <div style="position:relative;">
+                <input type="password" id="authPassword" placeholder="Enter your password" required minlength="6" style="padding-right:42px;" />
+                <button type="button" onclick="togglePasswordVisibility()" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--sub);cursor:pointer;font-size:14px;">
+                  <i class="fas fa-eye" id="pwToggleIcon"></i>
+                </button>
+              </div>
+            </div>
+            <button type="submit" class="btn">Login</button>
+          </form>
+          <div class="auth-copyright">Benedicto College Human Resources Department</div>
+        </div>
+      </div>
+    </div>
+  `;
+  clearInterval(authClockTimer);
+  tickClock();
+  authClockTimer = setInterval(tickClock, 1000);
+}
 
     window.togglePasswordVisibility = function() {
       const input = document.getElementById('authPassword');
@@ -1191,10 +1275,12 @@
       $('userName').textContent = currentUser.name;
       $('userRole').textContent = currentUser.role === 'admin' ? 'HR Manager' : 'Employee';
       $('portalLabel').textContent = currentUser.role === 'admin' ? 'ADMIN PORTAL' : 'EMPLOYEE PORTAL';
+      document.getElementById('sidebarQuickAttendance').style.display = currentUser.role === 'employee' ? 'block' : 'none';
       document.getElementById('app').className = currentUser.role === 'admin' ? 'role-admin' : 'role-employee';
 
       await loadData();
       renderSidebar();
+      refreshSidebarQuick();
       renderPage();
       renderNotifications();
       refreshTopbarAvatar();
@@ -1401,6 +1487,7 @@
   if (page !== 'employees') selectedEmployeeBox = null;
   if (page !== 'departments') selectedDeptCard = null;
   if (page !== 'attendance') { attendanceStatusFilter = 'all'; attendanceArchiveMonth = null; attendanceArchiveLogs = []; }
+  if (page !== 'attendance') myAttendanceMonth = null;
   if (page !== 'reports') selectedReportType = null;
   if (page !== 'leave') selectedLeaveRequestId = null;
   if (page !== 'announcements') announcementMonthFilter = null;
@@ -1413,12 +1500,14 @@
       todayAttendanceStatus = await fetch(`${API_BASE_URL}/attendance/status-today`).then(r => r.json());
       const yr = new Date().getFullYear();
       const archiveData = await fetch(`${API_BASE_URL}/attendance/archive/months?year=${yr}`).then(r => r.json());
+      biometricImports = await fetch(`${API_BASE_URL}/attendance/biometric-imports`).then(r => r.json());
       attendanceArchiveBuckets = buildYearMonthBuckets(archiveData.year || yr, archiveData.counts || {});
     } catch (err) {
       showToast('Failed to refresh attendance', 'fa-triangle-exclamation');
     }
   }
   renderPage();
+    if (page === 'attendance' && currentUser.role === 'employee') await loadMyAttendance(null);
 };
 
     function renderPage() {
@@ -1836,9 +1925,8 @@
             <div class="modal-row"><span>TIN Number</span><span>${e.tin || '-'}</span></div>
             <div class="modal-row"><span>Duties</span><span style="font-weight:500;text-align:right;">${getPositionDuties(e)}</span></div>
             ${e.resignDate ? `<div class="modal-row"><span>Resignation Date</span><span style="color:var(--red);font-weight:700;">${e.resignDate}</span></div>` : ''}
-            <div style="margin-top:18px;display:flex;gap:10px;flex-wrap:wrap;">
+                        <div style="margin-top:18px;display:flex;gap:10px;flex-wrap:wrap;">
               <button class="btn btn-outline" style="flex:1;min-width:100px;" onclick="closeModal()">Close</button>
-              <button class="btn btn-outline" style="flex:1;min-width:100px;" onclick="closeModal(); duplicateEmployee('${e.id}')"><i class="fas fa-copy"></i> Duplicate</button>
               <button class="btn btn-navy" style="flex:1;min-width:100px;" onclick="editEmployee('${e.id}')"><i class="fas fa-pen"></i> Edit</button>
               ${e.status !== 'Inactive' ? `<button class="btn btn-red" style="flex:1;min-width:100px;" onclick="confirmResign('${e.id}')"><i class="fas fa-user-xmark"></i> Resign</button>` : ''}
             </div>
@@ -1964,6 +2052,7 @@
         <div class="field"><label>Current Balance</label><input type="text" value="${e.leaveBalance !== undefined ? e.leaveBalance : 0} days" disabled style="background:#eef0f8;color:var(--sub);" /></div>
         <div class="field"><label>New Balance (days)</label><input id="adj_balance" type="number" value="${e.leaveBalance !== undefined ? e.leaveBalance : 15}" min="0" max="365" /></div>
         <div style="display:flex;gap:10px;margin-top:14px;">
+          <button class="btn btn-navy" onclick="showBiometricPhotoModal()"><i class="fas fa-camera"></i> Attach Biometric Photo</button>
           <button class="btn btn-outline" style="flex:1" onclick="closeModal()">Cancel</button>
           <button class="btn btn-navy" style="flex:1" onclick="saveAdjustedBalance('${e.id}')"><i class="fas fa-save"></i> Save Balance</button>
         </div>
@@ -2010,43 +2099,66 @@
               <div class="field"><label>PhilHealth ID</label><input id="e_philhealth" type="text" value="${e.philhealth||''}" /></div>
               <div class="field"><label>Pag-IBIG ID</label><input id="e_pagibig" type="text" value="${e.pagibig||''}" /></div>
               <div class="field"><label>TIN Number</label><input id="e_pin" type="text" value="${e.pin||''}" /></div>
-              <div class="field" style="grid-column:1 / -1;"><label>Duties</label><input id="e_duties" type="text" value="${e.duties||''}" placeholder="Brief description of role duties" /></div>
+                            <div class="field" style="grid-column:1 / -1;"><label>Duties</label><input id="e_duties" type="text" value="${e.duties||''}" placeholder="Brief description of role duties" /></div>
+            </div>
+            <div class="field" style="border-top:1px solid var(--line);padding-top:14px;margin-top:14px;">
+              <label style="color:var(--navy-light);font-weight:700;">Reset Portal Password (optional)</label>
+              <input id="e_password" type="text" placeholder="Leave blank to keep current password" />
+              <p style="font-size:11px;color:var(--sub);margin:4px 0 0;">Only fill this in if you want to change ${e.first}'s login password.</p>
             </div>
             <button class="btn btn-navy" style="width:100%;margin-top:14px;" onclick="saveEditEmployee('${e.id}')">Save Changes</button>
           `);
     };
 
-    window.saveEditEmployee = async function(id) {
-      const e = employees.find(x => x.id === id);
-      if (!e) return;
-      const payload = {
-        first: document.getElementById('e_first').value.trim() || e.first,
-        last: document.getElementById('e_last').value.trim() || e.last,
-        position: document.getElementById('e_position').value.trim() || e.position,
-        department: document.getElementById('e_department').value,
-        status: document.getElementById('e_status').value,
-        salary: document.getElementById('e_salary').value.trim(),
-        email: document.getElementById('e_email').value.trim(),
-        phone: document.getElementById('e_phone').value.trim(),
-        sss: document.getElementById('e_sss').value.trim(),
-        philhealth: document.getElementById('e_philhealth').value.trim(),
-        pagibig: document.getElementById('e_pagibig').value.trim(),
-        pin: document.getElementById('e_pin').value.trim(),
-        duties: document.getElementById('e_duties').value.trim()
-      };
-      try {
-        await fetch(`${API_BASE_URL}/employees/${id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
-        await reloadAndRender();
-        closeModal();
-        showToast('Employee updated!');
-      } catch (err) {
-        showToast('Failed to update employee', 'fa-triangle-exclamation');
-      }
-    };
+      window.saveEditEmployee = async function(id) {
+  const e = employees.find(x => x.id === id);
+  if (!e) return;
+  const payload = {
+    first: document.getElementById('e_first').value.trim() || e.first,
+    last: document.getElementById('e_last').value.trim() || e.last,
+    position: document.getElementById('e_position').value.trim() || e.position,
+    department: document.getElementById('e_department').value,
+    status: document.getElementById('e_status').value,
+    salary: document.getElementById('e_salary').value.trim(),
+    email: document.getElementById('e_email').value.trim(),
+    phone: document.getElementById('e_phone').value.trim(),
+    sss: document.getElementById('e_sss').value.trim(),
+    philhealth: document.getElementById('e_philhealth').value.trim(),
+    pagibig: document.getElementById('e_pagibig').value.trim(),
+    pin: document.getElementById('e_pin').value.trim(),
+    duties: document.getElementById('e_duties').value.trim()
+  };
+  const newPassword = document.getElementById('e_password').value.trim();
+  try {
+    await fetch(`${API_BASE_URL}/employees/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    let pwFailed = false, pwMsg = '', loginEmail = payload.email;
+    if (newPassword) {
+      const pwRes = await fetch(`${API_BASE_URL}/employees/${id}/password`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: newPassword })
+      });
+      let pwData = {};
+      try { pwData = await pwRes.json(); } catch (err) {}
+      if (!pwRes.ok) { pwFailed = true; pwMsg = pwData.error || 'password reset failed'; }
+      else if (pwData.loginEmail) loginEmail = pwData.loginEmail;
+    }
+
+    await reloadAndRender();
+    closeModal();
+
+    if (pwFailed) showToast('Employee saved, but ' + pwMsg, 'fa-triangle-exclamation');
+    else if (newPassword) showToast('Password reset! Login email: ' + loginEmail);
+    else showToast('Employee updated!');
+  } catch (err) {
+    showToast('Failed to update employee', 'fa-triangle-exclamation');
+  }
+};
 
     const ACADEMIC_COLLEGE_NAMES = ['Tourism Department','Information Technology Department','Accountancy Department','Business Department','Engineering Department','Educational Department'];
 
@@ -2645,57 +2757,70 @@
     ? `Archived Log — ${getMonthLabel(attendanceArchiveMonth)}${attendanceStatusFilter !== 'all' ? ' — ' + attendanceStatusFilter : ''}`
     : (attendanceStatusFilter === 'all' ? "Today's Log" : `Today's Log — ${attendanceStatusFilter}`);
 
+  const pillClass = s => s==='Present' ? 'pill-active'
+    : s==='Late' ? 'pill-leave'
+    : s==='Undertime' ? 'pill-undertime'
+    : s==='Absent' ? 'pill-inactive'
+    : s==='On Leave' ? 'pill-leave' : 'pill-pending';
+
   return `
-        <div class="page-header-flex">
-          <div>
-            <h1 class="page-title" style="margin-bottom:4px;">Attendance</h1>
-            <p class="page-sub" style="margin-bottom:0;">${viewingArchive
-              ? `Browsing archived attendance for ${getMonthLabel(attendanceArchiveMonth)}.`
-              : `Daily attendance log for ${new Date().toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'})}. Click a card below to filter the log.`}</p>
-          </div>
-          <div id="attendanceArchiveWrap" style="position:relative;">
-            <button class="btn btn-outline" title="Browse past attendance by month" onclick="toggleAttendanceArchive(event)"><i class="fas fa-box-archive"></i> ${viewingArchive ? getMonthLabel(attendanceArchiveMonth) : 'Archive'}</button>
-            <div class="month-archive-panel" id="attendanceArchivePanel">
-              <div class="ma-item ${!viewingArchive?'active':''}" onclick="setAttendanceArchiveMonth(null)"><i class="fas fa-calendar-day" style="margin-right:6px;"></i>Today (Live)</div>
-              <div class="ma-divider"></div>
-              ${attendanceArchiveBuckets.map(b => `<div class="ma-item ${attendanceArchiveMonth===b.key?'active':''}" onclick="setAttendanceArchiveMonth('${b.key}')"><span><i class="fas fa-calendar" style="margin-right:6px;width:14px;"></i>${b.label}</span><span class="ma-count">${b.count}</span></div>`).join('')}
-            </div>
+    <div class="page-header-flex">
+      <div>
+        <h1 class="page-title" style="margin-bottom:4px;">Attendance</h1>
+        <p class="page-sub" style="margin-bottom:0;">${viewingArchive
+          ? `Browsing archived attendance for ${getMonthLabel(attendanceArchiveMonth)}.`
+          : `Daily attendance log for ${new Date().toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'})}. Click a card below to filter the log.`}</p>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+        <button class="btn btn-navy" onclick="showBiometricPhotoModal()"><i class="fas fa-camera"></i> Attach Biometric Photo</button>
+        <div id="attendanceArchiveWrap" style="position:relative;">
+          <button class="btn btn-outline" title="Browse past attendance by month" onclick="toggleAttendanceArchive(event)"><i class="fas fa-box-archive"></i> ${viewingArchive ? getMonthLabel(attendanceArchiveMonth) : 'Archive'}</button>
+          <div class="month-archive-panel" id="attendanceArchivePanel">
+            <div class="ma-item ${!viewingArchive?'active':''}" onclick="setAttendanceArchiveMonth(null)"><i class="fas fa-calendar-day" style="margin-right:6px;"></i>Today (Live)</div>
+            <div class="ma-divider"></div>
+            ${attendanceArchiveBuckets.map(b => `<div class="ma-item ${attendanceArchiveMonth===b.key?'active':''}" onclick="setAttendanceArchiveMonth('${b.key}')"><span><i class="fas fa-calendar" style="margin-right:6px;width:14px;"></i>${b.label}</span><span class="ma-count">${b.count}</span></div>`).join('')}
           </div>
         </div>
-        <div class="grid-stats">
-          ${statCard('<i class="fas fa-circle-check"></i>','#3aa65b','Present',present,'View list',"setAttendanceFilter('Present')")}
-          ${statCard('<i class="fas fa-clock"></i>','#e2a63b','Late',late,'View list',"setAttendanceFilter('Late')")}
-          ${statCard('<i class="fas fa-door-open"></i>','#e8722a','Undertime',undertime,'View list',"setAttendanceFilter('Undertime')")}
-          ${statCard('<i class="fas fa-circle-xmark"></i>','#e0473c','Absent',absent,'View list',"setAttendanceFilter('Absent')")}
-          ${statCard('<i class="fas fa-umbrella"></i>','#9a6a10','On Leave',onLeave,'View list',"setAttendanceFilter('On Leave')")}
+      </div>
+    </div>
+
+    <div class="grid-stats">
+      ${statCard('<i class="fas fa-circle-check"></i>','#3aa65b','Present',present,'View list',"setAttendanceFilter('Present')")}
+      ${statCard('<i class="fas fa-clock"></i>','#e2a63b','Late',late,'View list',"setAttendanceFilter('Late')")}
+      ${statCard('<i class="fas fa-door-open"></i>','#e8722a','Undertime',undertime,'View list',"setAttendanceFilter('Undertime')")}
+      ${statCard('<i class="fas fa-circle-xmark"></i>','#e0473c','Absent',absent,'View list',"setAttendanceFilter('Absent')")}
+      ${statCard('<i class="fas fa-umbrella"></i>','#9a6a10','On Leave',onLeave,'View list',"setAttendanceFilter('On Leave')")}
+    </div>
+
+    <div class="panel" style="padding:0;overflow-x:auto;" id="attendanceLogPanel">
+      <div style="padding:16px 20px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+        <h3 style="margin:0;">${logTitle}</h3>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          ${attendanceStatusFilter !== 'all' ? `<button class="btn btn-outline btn-sm" onclick="setAttendanceFilter('all')">Show All</button>` : ''}
+          ${viewingArchive
+            ? `<button class="btn btn-outline btn-sm" onclick="setAttendanceArchiveMonth(null)"><i class="fas fa-calendar-day"></i> Back to Today</button>`
+            : `<button class="btn btn-outline btn-sm" onclick="exportAttendanceCSV()"><i class="fas fa-download"></i> Export</button>`}
         </div>
-        <div class="panel" style="padding:0;overflow-x:auto;" id="attendanceLogPanel">
-          <div style="padding:16px 20px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
-            <h3 style="margin:0;">${logTitle}</h3>
-            <div style="display:flex;gap:8px;">
-              ${attendanceStatusFilter !== 'all' ? `<button class="btn btn-outline btn-sm" onclick="setAttendanceFilter('all')">Show All</button>` : ''}
-              ${viewingArchive
-                ? `<button class="btn btn-outline btn-sm" onclick="setAttendanceArchiveMonth(null)"><i class="fas fa-calendar-day"></i> Back to Today</button>`
-                : `<button class="btn btn-outline btn-sm" onclick="exportAttendanceCSV()"><i class="fas fa-download"></i> Export</button>`}
-            </div>
-          </div>
-          <table>
-            <thead><tr>${viewingArchive ? '<th>Date</th>' : ''}<th>Employee</th><th>Department</th><th>Time In</th><th>Time Out</th><th>Status</th></tr></thead>
-            <tbody>
-              ${filtered.length ? filtered.map(l => `
-                <tr>
-                  ${viewingArchive ? `<td>${l.date || '-'}</td>` : ''}
-                  <td>${l.name}</td>
-                  <td>${l.department}</td>
-                  <td>${l.timeIn || '-'}</td>
-                  <td>${l.timeOut || '-'}</td>
-                  <td><span class="pill ${l.status==='Present'?'pill-active':(l.status==='Late'?'pill-leave':(l.status==='Undertime'?'pill-undertime':(l.status==='Absent'?'pill-inactive':(l.status==='On Leave'?'pill-leave':'pill-pending'))))}">${l.status}</span></td>
-                </tr>
-              `).join('') : `<tr><td colspan="${viewingArchive?6:5}"><div class="empty-state"><i class="fas fa-fingerprint"></i><p>No ${attendanceStatusFilter==='all'?(viewingArchive?'records for this month':'scans recorded yet today'):attendanceStatusFilter.toLowerCase()+' records'}.</p></div></td></tr>`}
-            </tbody>
-          </table>
-        </div>
-      `;
+      </div>
+      <table>
+        <thead><tr>${viewingArchive ? '<th>Date</th>' : ''}<th>Employee</th><th>Department</th><th>Time In</th><th>Time Out</th><th>Status</th></tr></thead>
+        <tbody>
+          ${filtered.length ? filtered.map(l => `
+            <tr>
+              ${viewingArchive ? `<td>${l.date || '-'}</td>` : ''}
+              <td>${l.name}</td>
+              <td>${l.department}</td>
+              <td>${l.timeIn || '-'}</td>
+              <td>${l.timeOut || '-'}</td>
+              <td><span class="pill ${pillClass(l.status)}">${l.status}</span></td>
+            </tr>
+          `).join('') : `<tr><td colspan="${viewingArchive?6:5}"><div class="empty-state"><i class="fas fa-fingerprint"></i><p>No ${attendanceStatusFilter==='all'?(viewingArchive?'records for this month':'scans recorded yet today'):attendanceStatusFilter.toLowerCase()+' records'}.</p></div></td></tr>`}
+        </tbody>
+      </table>
+    </div>
+
+    ${biometricImportsPanelHTML()}
+  `;
 }
 
     window.toggleAttendanceArchive = function(e) {
@@ -2791,6 +2916,599 @@
       }
     };
 
+        window.showBiometricLogModal = function() {
+      const today = todayStr();
+      openModal(`
+            <button class="modal-close" onclick="closeModal()"><i class="fas fa-times"></i></button>
+            <h2 style="margin-top:0;"><i class="fas fa-fingerprint" style="margin-right:8px;color:var(--navy-light);"></i>Attach Biometric Log</h2>
+            <p style="color:var(--sub);font-size:13px;margin:0 0 16px;">Enter the exact time in / time out from the biometric device. This overwrites that day's log for the employee, so HR and the employee both see the same real time.</p>
+            <div class="field"><label>Employee</label>
+              <select id="bio_emp">${employees.map(e => `<option value="${e.id}">${e.first} ${e.last} (${e.id})</option>`).join('')}</select>
+            </div>
+            <div class="field"><label>Date</label><input id="bio_date" type="date" value="${today}" /></div>
+            <div class="form-grid" style="grid-template-columns:1fr 1fr;">
+              <div class="field"><label>Time In (e.g. 8:03 AM)</label><input id="bio_timein" type="text" placeholder="8:03 AM" /></div>
+              <div class="field"><label>Time Out (e.g. 5:47 PM)</label><input id="bio_timeout" type="text" placeholder="5:47 PM" /></div>
+            </div>
+            <button class="btn btn-navy" style="width:100%;margin-top:8px;" onclick="submitBiometricLog()"><i class="fas fa-check"></i> Save Biometric Log</button>
+          `);
+    };
+
+    
+
+    window.submitBiometricLog = async function() {
+      const employeeId = document.getElementById('bio_emp').value;
+      const date = document.getElementById('bio_date').value;
+      const timeIn = document.getElementById('bio_timein').value.trim();
+      const timeOut = document.getElementById('bio_timeout').value.trim();
+      if (!date || (!timeIn && !timeOut)) { showToast('Please enter a date and at least one time', 'fa-triangle-exclamation'); return; }
+      try {
+        const res = await fetch(`${API_BASE_URL}/attendance/biometric-log`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ employeeId, date, timeIn, timeOut })
+        });
+        const data = await res.json();
+        if (!res.ok) { showToast(data.error || 'Failed to attach biometric log', 'fa-triangle-exclamation'); return; }
+        await reloadAndRender();
+        closeModal();
+        showToast('Biometric log attached!');
+      } catch (err) {
+        showToast('Failed to attach biometric log', 'fa-triangle-exclamation');
+      }
+    };
+
+        // ═══════════════════════════════════════════════════════════
+    //  IMPORT BIOMETRIC LOG PHOTO — keeps the photo, reads ALL
+    //  employee info on it, fills attendance for matched employees
+    // ═══════════════════════════════════════════════════════════
+    window._bioFile = null;
+    window._bioRows = [];
+    window._bioRaw = '';
+    window._bioThumb = '';
+
+    function escBio(s) {
+      return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    }
+
+    // Shrinks the photo before saving so it uploads fast and stays small
+    function resizeImageToDataURL(file, maxW = 1400, quality = 0.72) {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        const url = URL.createObjectURL(file);
+        img.onload = () => {
+          const scale = Math.min(1, maxW / img.width);
+          const c = document.createElement('canvas');
+          c.width = Math.round(img.width * scale);
+          c.height = Math.round(img.height * scale);
+          c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+          URL.revokeObjectURL(url);
+          resolve(c.toDataURL('image/jpeg', quality));
+        };
+        img.onerror = reject;
+        img.src = url;
+      });
+    }
+
+    // "8:03", "8:03am", "17:45" → "8:03 AM" / "5:45 PM"
+    function normalizeBioTime(str) {
+      const m = String(str || '').trim().match(/^(\d{1,2}):(\d{2})(?::\d{2})?\s*([AaPp])?\.?[Mm]?\.?$/);
+      if (!m) return null;
+      let h = parseInt(m[1], 10);
+      const min = m[2];
+      if (h > 23 || parseInt(min, 10) > 59) return null;
+      let ampm;
+      if (m[3]) {
+        ampm = m[3].toUpperCase() === 'P' ? 'PM' : 'AM';
+        if (h > 12 || h === 0) return null;
+      } else {
+        ampm = h >= 12 ? 'PM' : 'AM';
+        h = h % 12 || 12;
+      }
+      return `${h}:${min} ${ampm}`;
+    }
+
+    function bioTimeToMinutes(t) {
+      const m = t.match(/^(\d{1,2}):(\d{2}) (AM|PM)$/);
+      let h = parseInt(m[1], 10);
+      if (m[3] === 'PM' && h !== 12) h += 12;
+      if (m[3] === 'AM' && h === 12) h = 0;
+      return h * 60 + parseInt(m[2], 10);
+    }
+
+    function bioStatusPreview(tinRaw, toutRaw) {
+      const tin = normalizeBioTime(tinRaw), tout = normalizeBioTime(toutRaw);
+      let s = '';
+      if (tin) s = bioTimeToMinutes(tin) > 8 * 60 ? 'Late' : 'Present';
+      if (tout && bioTimeToMinutes(tout) < 18 * 60) s = 'Undertime';
+      return s;
+    }
+
+    function extractBioDate(line) {
+      let m = line.match(/(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})/);
+      if (m) return `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}`;
+      m = line.match(/(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{4})/);
+      if (m) return `${m[3]}-${m[1].padStart(2, '0')}-${m[2].padStart(2, '0')}`;
+      return null;
+    }
+
+    function matchEmployeeInBioLine(line) {
+      const lineName = ' ' + line.toLowerCase().replace(/[^a-z\s]/g, ' ').replace(/\s+/g, ' ') + ' ';
+      const lineId = line.toUpperCase().replace(/[^A-Z0-9]/g, '');
+      return employees.filter(e => e.status !== 'Inactive').find(e => {
+        const idNorm = String(e.id || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+        if (idNorm && lineId.includes(idNorm)) return true;
+        const first = (e.first || '').toLowerCase().trim();
+        const last = (e.last || '').toLowerCase().trim();
+        return first && last && lineName.includes(' ' + first) && lineName.includes(last);
+      }) || null;
+    }
+
+    function timesInLine(line) {
+      const out = [];
+      const re = /(\d{1,2}:\d{2}(?::\d{2})?\s*(?:[AaPp][Mm])?)/g;
+      let m;
+      while ((m = re.exec(line)) !== null) {
+        const t = normalizeBioTime(m[1]);
+        if (t) out.push(t);
+      }
+      return out;
+    }
+
+    function pickInOut(times) {
+      const t = [...new Set(times)].sort((a, b) => bioTimeToMinutes(a) - bioTimeToMinutes(b));
+      let timeIn = '', timeOut = '';
+      if (t.length >= 2) { timeIn = t[0]; timeOut = t[t.length - 1]; }
+      else if (t.length === 1) { if (bioTimeToMinutes(t[0]) < 12 * 60) timeIn = t[0]; else timeOut = t[0]; }
+      return { timeIn, timeOut };
+    }
+
+    function parseBiometricText(text, defaultDate) {
+      const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+      const textDate = extractBioDate(text);
+      const groups = {};   // matched employees: "empId|date"
+      const unmatched = []; // lines with a time but no employee on file
+      lines.forEach(line => {
+        const emp = matchEmployeeInBioLine(line);
+        const date = extractBioDate(line) || textDate || defaultDate;
+        if (emp) {
+          const key = emp.id + '|' + date;
+          if (!groups[key]) groups[key] = { emp, date, times: [] };
+          groups[key].times.push(...timesInLine(line));
+        } else {
+          const times = timesInLine(line);
+          if (times.length) unmatched.push({ line, date, times });
+        }
+      });
+
+      const rows = Object.values(groups).map(g => {
+        const { timeIn, timeOut } = pickInOut(g.times);
+        return {
+          include: !!(timeIn || timeOut), unmatched: false,
+          employeeId: g.emp.id, name: `${g.emp.first} ${g.emp.last}`, department: g.emp.department, position: g.emp.position,
+          date: g.date, timeIn, timeOut, rawLine: ''
+        };
+      });
+      unmatched.forEach(u => {
+        const { timeIn, timeOut } = pickInOut(u.times);
+        rows.push({
+          include: false, unmatched: true,
+          employeeId: '', name: '', department: '', position: '',
+          date: u.date, timeIn, timeOut, rawLine: u.line
+        });
+      });
+      return rows;
+    }
+
+    window.showBiometricPhotoModal = function() {
+      window._bioFile = null; window._bioRows = []; window._bioRaw = ''; window._bioThumb = '';
+      openModal(`
+        <button class="modal-close" onclick="closeModal()"><i class="fas fa-times"></i></button>
+        <h2 style="margin-top:0;"><i class="fas fa-camera" style="margin-right:8px;color:var(--navy-light);"></i>Import Biometric Log Photo</h2>
+        <p style="color:var(--sub);font-size:13px;margin:0 0 14px;">Attach the photo or screenshot from the Benedicto College biometric. The system keeps the photo, reads every employee's information on it, and fills in their Time In / Time Out on the Attendance page.</p>
+        <div class="form-grid" style="grid-template-columns:1fr 1fr;align-items:end;">
+          <div class="field"><label>Default date (used if the photo has no date)</label><input id="bp_date" type="date" value="${todayStr()}" /></div>
+          <div class="field"><label>Biometric photo</label><input id="bp_file" type="file" accept="image/*" onchange="handleBioFile(this)" /></div>
+        </div>
+        <img id="bp_preview" style="display:none;max-width:100%;max-height:220px;border-radius:10px;border:1px solid var(--line);margin:8px 0;" />
+        <button class="btn btn-outline" style="width:100%;margin-top:6px;" onclick="runBiometricOCR()"><i class="fas fa-magnifying-glass"></i> Read Biometric Photo</button>
+        <div id="bp_status" style="font-size:12.5px;color:var(--sub);text-align:center;margin:10px 0;min-height:16px;"></div>
+        <div id="bp_results"></div>
+      `, true);
+    };
+
+    window.handleBioFile = async function(input) {
+      const file = input.files && input.files[0];
+      if (!file) return;
+      if (!file.type.startsWith('image/')) { showToast('Please choose an image file', 'fa-triangle-exclamation'); return; }
+      window._bioFile = file;
+      try { window._bioThumb = await resizeImageToDataURL(file); } catch (e) { window._bioThumb = ''; }
+      const img = document.getElementById('bp_preview');
+      img.src = window._bioThumb || URL.createObjectURL(file);
+      img.style.display = 'block';
+    };
+
+    window.runBiometricOCR = async function() {
+      const statusEl = document.getElementById('bp_status');
+      if (!window._bioFile) { showToast('Please choose a biometric photo first', 'fa-triangle-exclamation'); return; }
+      if (typeof Tesseract === 'undefined') { showToast('Photo reader failed to load. Check your internet connection.', 'fa-triangle-exclamation'); return; }
+      statusEl.textContent = 'Reading photo… 0%';
+      try {
+        const result = await Tesseract.recognize(window._bioFile, 'eng', {
+          logger: m => { if (m.status === 'recognizing text') statusEl.textContent = 'Reading photo… ' + Math.round(m.progress * 100) + '%'; }
+        });
+        window._bioRaw = result.data.text || '';
+        const defaultDate = document.getElementById('bp_date').value || todayStr();
+        window._bioRows = parseBiometricText(window._bioRaw, defaultDate);
+        const matched = window._bioRows.filter(r => !r.unmatched).length;
+        const unm = window._bioRows.length - matched;
+        statusEl.textContent = window._bioRows.length
+          ? `Found ${matched} employee(s) on file` + (unm ? ` and ${unm} line(s) not matched — choose the employee for those.` : '.') + ' Check the times, then save.'
+          : 'Nothing readable found. Try a clearer, straighter photo.';
+        renderBioRows();
+      } catch (err) {
+        console.error(err);
+        statusEl.textContent = 'Could not read the photo. Please try again.';
+      }
+    };
+
+    window.assignBioRow = function(i, empId) {
+      const e = employees.find(x => x.id === empId);
+      const r = window._bioRows[i];
+      if (!r) return;
+      if (e) {
+        r.employeeId = e.id; r.name = `${e.first} ${e.last}`; r.department = e.department; r.position = e.position;
+        r.unmatched = false; r.include = !!(r.timeIn || r.timeOut);
+      } else {
+        r.employeeId = ''; r.name = ''; r.department = ''; r.position = ''; r.unmatched = true; r.include = false;
+      }
+      renderBioRows();
+    };
+
+    function renderBioRows() {
+      const box = document.getElementById('bp_results');
+      if (!box) return;
+      const rows = window._bioRows;
+      if (!rows.length) { box.innerHTML = ''; return; }
+      const inp = 'width:100%;padding:7px 8px;border:1px solid var(--line);border-radius:8px;background:#f6f7fb;font-size:12.5px;font-family:inherit;';
+      const empOptions = employees.filter(e => e.status !== 'Inactive')
+        .map(e => `<option value="${e.id}">${escBio(e.first)} ${escBio(e.last)} (${escBio(e.id)})</option>`).join('');
+      box.innerHTML = `
+        <div style="max-height:320px;overflow:auto;border:1px solid var(--line);border-radius:12px;">
+          <table>
+            <thead><tr><th></th><th>Employee</th><th>Date</th><th>Time In</th><th>Time Out</th><th>Status</th></tr></thead>
+            <tbody>
+              ${rows.map((r, i) => `
+                <tr>
+                  <td><input type="checkbox" ${r.include ? 'checked' : ''} ${r.unmatched ? 'disabled' : ''} onchange="_bioRows[${i}].include=this.checked" /></td>
+                  <td style="min-width:190px;">
+                    ${r.unmatched ? `
+                      <select style="${inp}" onchange="assignBioRow(${i}, this.value)"><option value="">Not on file — choose employee</option>${empOptions}</select>
+                      <div style="font-size:10.5px;color:var(--sub);margin-top:3px;">Read: ${escBio(r.rawLine)}</div>
+                    ` : `
+                      <strong>${escBio(r.name)}</strong>
+                      <div style="font-size:11px;color:var(--sub);">${escBio(r.employeeId)} · ${escBio(r.position)} · ${escBio(r.department)}</div>
+                    `}
+                  </td>
+                  <td><input type="date" value="${r.date}" style="${inp}" onchange="_bioRows[${i}].date=this.value" /></td>
+                  <td><input type="text" value="${escBio(r.timeIn)}" placeholder="8:03 AM" style="${inp}" oninput="_bioRows[${i}].timeIn=this.value" /></td>
+                  <td><input type="text" value="${escBio(r.timeOut)}" placeholder="5:47 PM" style="${inp}" oninput="_bioRows[${i}].timeOut=this.value" /></td>
+                  <td>${(() => { const s = bioStatusPreview(r.timeIn, r.timeOut); return s ? `<span class="pill ${s==='Present'?'pill-active':(s==='Late'?'pill-leave':'pill-undertime')}">${s}</span>` : '-'; })()}</td>
+                </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+        <details style="margin-top:10px;font-size:12px;color:var(--sub);"><summary style="cursor:pointer;">Show everything the reader saw on the photo</summary>
+          <pre style="white-space:pre-wrap;background:#f6f7fb;border-radius:8px;padding:10px;margin-top:6px;max-height:160px;overflow:auto;">${escBio(window._bioRaw)}</pre>
+        </details>
+        <button class="btn btn-navy" style="width:100%;margin-top:14px;" onclick="saveBiometricPhotoRows()"><i class="fas fa-check"></i> Save Photo &amp; Import to Attendance</button>
+      `;
+    }
+
+    window.saveBiometricPhotoRows = async function() {
+      const rows = [];
+      for (const r of window._bioRows) {
+        const tin = r.timeIn ? normalizeBioTime(r.timeIn) : '';
+        const tout = r.timeOut ? normalizeBioTime(r.timeOut) : '';
+        if (r.include && ((r.timeIn && !tin) || (r.timeOut && !tout))) {
+          showToast(`Fix the time format for ${r.name || 'a row'} (example: 8:03 AM)`, 'fa-triangle-exclamation');
+          return;
+        }
+        rows.push({ ...r, timeIn: tin || '', timeOut: tout || '' });
+      }
+      if (!rows.some(r => r.include && r.employeeId)) { showToast('Select at least one employee to import', 'fa-triangle-exclamation'); return; }
+      try {
+        const res = await fetch(`${API_BASE_URL}/attendance/biometric-import`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            fileName: window._bioFile ? window._bioFile.name : 'biometric-photo',
+            image: window._bioThumb,
+            rawText: window._bioRaw,
+            importedBy: currentUser.name,
+            rows
+          })
+        });
+        const data = await res.json();
+        if (!res.ok) { showToast(data.error || 'Failed to import biometric photo', 'fa-triangle-exclamation'); return; }
+        closeModal();
+        await goTo('attendance');
+        showToast(`Biometric photo attached — ${data.saved} employee(s) updated`);
+      } catch (err) {
+        showToast('Failed to import biometric photo', 'fa-triangle-exclamation');
+      }
+    };
+
+    // ─── "Attached Biometric Photos" list on the Attendance page ───
+       function biometricImportsPanelHTML() {
+      return `
+        <div class="panel" style="padding:0;overflow-x:auto;margin-top:18px;">
+          <div style="padding:16px 20px;">
+            <h3 style="margin:0;"><i class="fas fa-camera" style="margin-right:8px;color:var(--navy-light);"></i>Biometric Photos Attached</h3>
+          </div>
+          <table>
+            <thead><tr><th>Photo</th><th>Attached On</th><th>File</th><th>Shown To</th><th>Imported</th><th>By</th><th>Action</th></tr></thead>
+            <tbody>
+              ${biometricImports.length ? biometricImports.map(b => `
+                <tr>
+                  <td>
+                    <img src="${API_BASE_URL}/attendance/biometric-imports/${b._id}/image" alt="Biometric photo"
+                         onclick="viewBiometricImport('${b._id}')" title="Click to view"
+                         style="width:64px;height:48px;object-fit:cover;border-radius:8px;border:1px solid var(--line);cursor:pointer;background:#f6f7fb;" />
+                  </td>
+                  <td>${new Date(b.createdAt).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })}</td>
+                  <td>${escBio(b.fileName)}</td>
+                  <td>${(b.assignedTo || []).length} employee(s)</td>
+                  <td>${b.savedCount || 0}</td>
+                  <td>${escBio(b.importedBy || '-')}</td>
+                  <td>
+                    <button class="btn btn-outline btn-sm" onclick="viewBiometricImport('${b._id}')">View</button>
+                    <button class="btn btn-red btn-sm" onclick="deleteBiometricImport('${b._id}')">Delete</button>
+                  </td>
+                </tr>`).join('') : `<tr><td colspan="7"><div class="empty-state"><i class="fas fa-camera"></i><p>No biometric photos attached yet. Use "Attach Biometric Photo" above.</p></div></td></tr>`}
+            </tbody>
+          </table>
+        </div>`;
+    }
+
+    window.viewBiometricImport = async function(id) {
+      try {
+        const b = await fetch(`${API_BASE_URL}/attendance/biometric-imports/${id}`).then(r => r.json());
+        openModal(`
+          <button class="modal-close" onclick="closeModal()"><i class="fas fa-times"></i></button>
+          <h2 style="margin-top:0;">Biometric Photo — ${escBio(b.fileName)}</h2>
+          <p style="color:var(--sub);font-size:12.5px;margin:0 0 12px;">Attached ${new Date(b.createdAt).toLocaleString()} by ${escBio(b.importedBy || '-')}</p>
+          ${b.image ? `<img src="${b.image}" style="max-width:100%;border-radius:10px;border:1px solid var(--line);margin-bottom:14px;" />` : ''}
+          <div style="max-height:280px;overflow:auto;border:1px solid var(--line);border-radius:12px;">
+            <table>
+              <thead><tr><th>Employee</th><th>Department</th><th>Date</th><th>Time In</th><th>Time Out</th><th>Status</th></tr></thead>
+              <tbody>
+                ${(b.rows || []).map(r => `
+                  <tr>
+                    <td><strong>${escBio(r.name || 'Not matched')}</strong><div style="font-size:11px;color:var(--sub);">${escBio(r.employeeId || '')} ${escBio(r.position || '')}</div></td>
+                    <td>${escBio(r.department || '-')}</td>
+                    <td>${escBio(r.date || '-')}</td>
+                    <td>${escBio(r.timeIn || '-')}</td>
+                    <td>${escBio(r.timeOut || '-')}</td>
+                    <td>${r.matched ? `<span class="pill ${r.status==='Present'?'pill-active':(r.status==='Late'?'pill-leave':'pill-undertime')}">${escBio(r.status)}</span>` : '<span style="color:var(--sub);font-size:12px;">Not imported</span>'}</td>
+                  </tr>`).join('')}
+              </tbody>
+            </table>
+          </div>
+          <button class="btn btn-outline" style="width:100%;margin-top:14px;" onclick="closeModal()">Close</button>
+        `, true);
+      } catch (err) {
+        showToast('Failed to open biometric photo', 'fa-triangle-exclamation');
+      }
+    };
+
+    window.deleteBiometricImport = async function(id) {
+      if (!confirm('Delete this attached photo? The attendance records already imported from it will stay.')) return;
+      try {
+        await fetch(`${API_BASE_URL}/attendance/biometric-imports/${id}`, { method: 'DELETE' });
+        biometricImports = biometricImports.filter(b => b._id !== id);
+        renderPage();
+        showToast('Attached photo deleted');
+      } catch (err) {
+        showToast('Failed to delete photo', 'fa-triangle-exclamation');
+      }
+    };
+
+        window.showBiometricPhotoModal = function() {
+  window._bioFile = null; window._bioRows = []; window._bioRaw = ''; window._bioThumb = '';
+  const activeEmps = employees.filter(e => e.status !== 'Inactive');
+  openModal(`
+    <button class="modal-close" onclick="closeModal()"><i class="fas fa-times"></i></button>
+    <h2 style="margin-top:0;"><i class="fas fa-camera" style="margin-right:8px;color:var(--navy-light);"></i>Attach Biometric Photo</h2>
+    <p style="color:var(--sub);font-size:13px;margin:0 0 14px;">Attach any photo. Pick the employees who should see it, and/or let the system read names and times from it.</p>
+    <div class="form-grid" style="grid-template-columns:1fr 1fr;align-items:end;">
+      <div class="field"><label>Default date (used if the photo has no date)</label><input id="bp_date" type="date" value="${todayStr()}" /></div>
+      <div class="field"><label>Photo</label><input id="bp_file" type="file" accept="image/*" onchange="handleBioFile(this)" /></div>
+    </div>
+    <img id="bp_preview" style="display:none;max-width:100%;max-height:220px;border-radius:10px;border:1px solid var(--line);margin:8px 0;" />
+    <div class="field" style="margin-top:10px;">
+      <label>Show this photo to these employees (optional)</label>
+      <div style="max-height:150px;overflow:auto;border:1px solid var(--line);border-radius:10px;padding:8px 12px;background:#f6f7fb;">
+        ${activeEmps.map(e => `<label style="display:flex;gap:8px;align-items:center;font-size:12.5px;font-style:normal;color:var(--ink);padding:3px 0;cursor:pointer;margin:0;"><input type="checkbox" class="bp_emp" value="${e.id}" style="width:auto;" /> ${escBio(e.first)} ${escBio(e.last)} (${escBio(e.id)})</label>`).join('')}
+      </div>
+    </div>
+    <button class="btn btn-outline" style="width:100%;margin-top:10px;" onclick="runBiometricOCR()"><i class="fas fa-magnifying-glass"></i> Read Photo for Names &amp; Times (optional)</button>
+    <div id="bp_status" style="font-size:12.5px;color:var(--sub);text-align:center;margin:10px 0;min-height:16px;"></div>
+    <div id="bp_results"></div>
+    <button class="btn btn-navy" style="width:100%;margin-top:14px;" onclick="saveBiometricPhotoRows()"><i class="fas fa-check"></i> Save Photo &amp; Attach</button>
+  `, true);
+};
+
+    window.handleBioFile = function(input) {
+      const file = input.files && input.files[0];
+      if (!file) return;
+      if (!file.type.startsWith('image/')) { showToast('Please choose an image file', 'fa-triangle-exclamation'); return; }
+      window._bioFile = file;
+      const img = document.getElementById('bp_preview');
+      img.src = URL.createObjectURL(file);
+      img.style.display = 'block';
+    };
+
+    // "8:03", "8:03am", "17:45" → "8:03 AM" / "5:45 PM"
+    function normalizeBioTime(str) {
+      const m = String(str || '').trim().match(/^(\d{1,2}):(\d{2})(?::\d{2})?\s*([AaPp])?\.?[Mm]?\.?$/);
+      if (!m) return null;
+      let h = parseInt(m[1], 10);
+      const min = m[2];
+      if (h > 23 || parseInt(min, 10) > 59) return null;
+      let ampm;
+      if (m[3]) {
+        ampm = m[3].toUpperCase() === 'P' ? 'PM' : 'AM';
+        if (h > 12 || h === 0) return null;
+      } else {
+        ampm = h >= 12 ? 'PM' : 'AM';
+        h = h % 12 || 12;
+      }
+      return `${h}:${min} ${ampm}`;
+    }
+
+    function bioTimeToMinutes(t) {
+      const m = t.match(/^(\d{1,2}):(\d{2}) (AM|PM)$/);
+      let h = parseInt(m[1], 10);
+      if (m[3] === 'PM' && h !== 12) h += 12;
+      if (m[3] === 'AM' && h === 12) h = 0;
+      return h * 60 + parseInt(m[2], 10);
+    }
+
+    function extractBioDate(line) {
+      let m = line.match(/(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})/);
+      if (m) return `${m[1]}-${m[2].padStart(2,'0')}-${m[3].padStart(2,'0')}`;
+      m = line.match(/(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{4})/); // MM/DD/YYYY
+      if (m) return `${m[3]}-${m[1].padStart(2,'0')}-${m[2].padStart(2,'0')}`;
+      return null;
+    }
+
+    function matchEmployeeInBioLine(line) {
+      const lineName = ' ' + line.toLowerCase().replace(/[^a-z\s]/g, ' ').replace(/\s+/g, ' ') + ' ';
+      const lineId = line.toUpperCase().replace(/[^A-Z0-9]/g, '');
+      return employees.filter(e => e.status !== 'Inactive').find(e => {
+        const idNorm = String(e.id || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+        if (idNorm && lineId.includes(idNorm)) return true;
+        const first = (e.first || '').toLowerCase().trim();
+        const last = (e.last || '').toLowerCase().trim();
+        return first && last && lineName.includes(' ' + first) && lineName.includes(last);
+      }) || null;
+    }
+
+    function parseBiometricText(text, defaultDate) {
+      const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+      const textDate = extractBioDate(text);
+      const groups = {}; // "empId|date" -> { emp, date, times[] }
+      lines.forEach(line => {
+        const emp = matchEmployeeInBioLine(line);
+        if (!emp) return;
+        const date = extractBioDate(line) || textDate || defaultDate;
+        const key = emp.id + '|' + date;
+        if (!groups[key]) groups[key] = { emp, date, times: [] };
+        const re = /(\d{1,2}:\d{2}(?::\d{2})?\s*(?:[AaPp][Mm])?)/g;
+        let m;
+        while ((m = re.exec(line)) !== null) {
+          const t = normalizeBioTime(m[1]);
+          if (t) groups[key].times.push(t);
+        }
+      });
+      return Object.values(groups).map(g => {
+        const times = [...new Set(g.times)].sort((a, b) => bioTimeToMinutes(a) - bioTimeToMinutes(b));
+        let timeIn = '', timeOut = '';
+        if (times.length >= 2) { timeIn = times[0]; timeOut = times[times.length - 1]; }
+        else if (times.length === 1) { if (bioTimeToMinutes(times[0]) < 12 * 60) timeIn = times[0]; else timeOut = times[0]; }
+        return { include: !!(timeIn || timeOut), employeeId: g.emp.id, name: `${g.emp.first} ${g.emp.last}`, department: g.emp.department, date: g.date, timeIn, timeOut };
+      });
+    }
+
+    window.runBiometricOCR = async function() {
+      const statusEl = document.getElementById('bp_status');
+      if (!window._bioFile) { showToast('Please choose a biometric photo first', 'fa-triangle-exclamation'); return; }
+      if (typeof Tesseract === 'undefined') { showToast('Photo reader failed to load. Check your internet connection.', 'fa-triangle-exclamation'); return; }
+      statusEl.textContent = 'Reading photo… 0%';
+      try {
+        const result = await Tesseract.recognize(window._bioFile, 'eng', {
+          logger: m => { if (m.status === 'recognizing text') statusEl.textContent = 'Reading photo… ' + Math.round(m.progress * 100) + '%'; }
+        });
+        const defaultDate = document.getElementById('bp_date').value || todayStr();
+        window._bioRows = parseBiometricText(result.data.text, defaultDate);
+        statusEl.textContent = window._bioRows.length
+          ? `Found ${window._bioRows.length} employee(s) in the photo. Check the times below, fix anything wrong, then save.`
+          : 'No employees matched. Try a clearer, straighter photo (names or Employee IDs must be visible).';
+        renderBioRows();
+      } catch (err) {
+        console.error(err);
+        statusEl.textContent = 'Could not read the photo. Please try again.';
+      }
+    };
+
+    function renderBioRows() {
+      const box = document.getElementById('bp_results');
+      if (!box) return;
+      if (!window._bioRows.length) { box.innerHTML = ''; return; }
+      const inp = 'width:100%;padding:7px 8px;border:1px solid var(--line);border-radius:8px;background:#f6f7fb;font-size:12.5px;font-family:inherit;';
+      box.innerHTML = `
+        <div style="max-height:300px;overflow:auto;border:1px solid var(--line);border-radius:12px;">
+          <table>
+            <thead><tr><th></th><th>Employee</th><th>Date</th><th>Time In</th><th>Time Out</th></tr></thead>
+            <tbody>
+              ${window._bioRows.map((r, i) => `
+                <tr>
+                  <td><input type="checkbox" ${r.include ? 'checked' : ''} onchange="_bioRows[${i}].include=this.checked" /></td>
+                  <td><strong>${r.name}</strong><div style="font-size:11px;color:var(--sub);">${r.employeeId} · ${r.department}</div></td>
+                  <td><input type="date" value="${r.date}" style="${inp}" onchange="_bioRows[${i}].date=this.value" /></td>
+                  <td><input type="text" value="${r.timeIn}" placeholder="8:03 AM" style="${inp}" oninput="_bioRows[${i}].timeIn=this.value" /></td>
+                  <td><input type="text" value="${r.timeOut}" placeholder="5:47 PM" style="${inp}" oninput="_bioRows[${i}].timeOut=this.value" /></td>
+                </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+        <button class="btn btn-navy" style="width:100%;margin-top:14px;" onclick="saveBiometricPhotoRows()"><i class="fas fa-check"></i> Save to Attendance</button>
+      `;
+    }
+
+    window.saveBiometricPhotoRows = async function() {
+  if (!window._bioFile) { showToast('Please choose a photo first', 'fa-triangle-exclamation'); return; }
+  if (!window._bioThumb) { showToast('This photo could not be processed. Try a JPG or PNG.', 'fa-triangle-exclamation'); return; }
+  const assignedTo = Array.from(document.querySelectorAll('.bp_emp:checked')).map(c => c.value);
+  const rows = [];
+  for (const r of window._bioRows) {
+    const tin = r.timeIn ? normalizeBioTime(r.timeIn) : '';
+    const tout = r.timeOut ? normalizeBioTime(r.timeOut) : '';
+    if (r.include && ((r.timeIn && !tin) || (r.timeOut && !tout))) {
+      showToast(`Fix the time format for ${r.name || 'a row'} (example: 8:03 AM)`, 'fa-triangle-exclamation');
+      return;
+    }
+    rows.push({ ...r, timeIn: tin || '', timeOut: tout || '' });
+  }
+  const hasRows = rows.some(r => r.include && r.employeeId);
+  if (!hasRows && !assignedTo.length) {
+    showToast('Tick at least one employee, or read the photo first', 'fa-triangle-exclamation');
+    return;
+  }
+  try {
+    const res = await fetch(`${API_BASE_URL}/attendance/biometric-import`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        fileName: window._bioFile.name,
+        image: window._bioThumb,
+        rawText: window._bioRaw,
+        importedBy: currentUser.name,
+        assignedTo,
+        rows
+      })
+    });
+    const data = await res.json();
+    if (!res.ok) { showToast(data.error || 'Failed to attach photo', 'fa-triangle-exclamation'); return; }
+    closeModal();
+    await goTo('attendance');
+    showToast(hasRows ? `Photo attached — ${data.saved} employee(s) updated` : `Photo attached to ${assignedTo.length} employee(s)`);
+  } catch (err) {
+    showToast('Failed to attach photo', 'fa-triangle-exclamation');
+  }
+};
+
     window.exportAttendanceCSV = function() {
       const date = todayStr();
       const rows = attendanceLogs.filter(l => l.date === date);
@@ -2812,7 +3530,6 @@
       const pendingCount = leaveRequests.filter(l => l.status === 'Pending').length;
       const approvedCount = leaveRequests.filter(l => l.status === 'Approved').length;
       const rejectedCount = leaveRequests.filter(l => l.status === 'Rejected').length;
-      const totalBalance = employees.reduce((sum, e) => sum + (e.leaveBalance || 0), 0);
       const filtered = leaveStatusFilter === 'all' ? leaveRequests : leaveRequests.filter(l => l.status === leaveStatusFilter);
       const filterLabel = leaveStatusFilter === 'all' ? 'All Requests' : leaveStatusFilter + ' Requests';
 
@@ -2844,14 +3561,7 @@
                 <div class="label">Rejected</div>
                 <div class="goto-hint">Click to view</div>
               </div>
-              <div class="info-card">
-                <div class="icon-wrap">
-                  <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><circle cx="12" cy="15" r="2"/><path d="M12 13v-2"/></svg>
-                </div>
-                <div class="value">${totalBalance}</div>
-                <div class="label">Total Balance Pool</div>
               </div>
-            </div>
             <div class="panel" style="padding:0;overflow-x:auto;" id="leaveTablePanel">
               <div style="padding:16px 20px 4px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
                 <h3 style="margin:0;font-size:15px;">${filterLabel}</h3>
@@ -3009,6 +3719,45 @@
       }
     };
 
+        // ─── Portal password helpers (8–16 chars, letters + numbers) ───
+    function generatePortalPassword(len = 8) {
+      const letters = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz';
+      const digits = '23456789';
+      const all = letters + digits;
+      const rnd = n => { const a = new Uint32Array(1); crypto.getRandomValues(a); return a[0] % n; };
+      const chars = [letters[rnd(letters.length)], digits[rnd(digits.length)]]; // at least 1 letter + 1 number
+      while (chars.length < len) chars.push(all[rnd(all.length)]);
+      for (let i = chars.length - 1; i > 0; i--) {           // shuffle
+        const j = rnd(i + 1);
+        [chars[i], chars[j]] = [chars[j], chars[i]];
+      }
+      return chars.join('');
+    }
+
+    window.updatePwCount = function() {
+      const el = document.getElementById('f_password');
+      const c = document.getElementById('pwCount');
+      if (!el || !c) return;
+      const ok = /^[A-Za-z0-9]{8,16}$/.test(el.value);
+      c.textContent = el.value.length + '/16 characters' + (ok ? '' : ' — must be 8–16 letters/numbers only');
+      c.style.color = ok ? 'var(--sub)' : 'var(--red)';
+    };
+    window.regenPortalPassword = function() {
+      document.getElementById('f_password').value = generatePortalPassword(8);
+      updatePwCount();
+    };
+    window.togglePortalPw = function() {
+      const el = document.getElementById('f_password');
+      const icon = document.getElementById('portalPwIcon');
+      const show = el.type === 'password';
+      el.type = show ? 'text' : 'password';
+      icon.className = show ? 'fas fa-eye-slash' : 'fas fa-eye';
+    };
+    window.copyPortalPassword = function() {
+      navigator.clipboard.writeText(document.getElementById('f_password').value);
+      showToast('Password copied');
+    };
+
     function addEmployeePage() {
       return `
             <div class="panel">
@@ -3061,6 +3810,25 @@
                   <div class="field"><label>Phone</label><input id="f_phone" type="text" placeholder="09##-###-####" /></div>
                 </div>
               </div>
+
+                <div class="form-section">
+                <h3>Portal Login</h3>
+                <div class="form-grid">
+                  <div class="field" style="grid-column:1 / -1;">
+                    <label>Portal Password (8–16 letters &amp; numbers) — the employee logs in with their email + this password</label>
+                    <div style="display:flex;gap:8px;align-items:center;">
+                      <input id="f_password" type="text" maxlength="16" minlength="8" autocomplete="off"
+                             value="${generatePortalPassword()}" oninput="updatePwCount()"
+                             style="font-family:monospace;letter-spacing:1px;font-weight:700;" />
+                      <button type="button" class="btn btn-outline btn-sm" title="Show / hide" onclick="togglePortalPw()"><i class="fas fa-eye-slash" id="portalPwIcon"></i></button>
+                      <button type="button" class="btn btn-outline btn-sm" title="Generate new random password" onclick="regenPortalPassword()"><i class="fas fa-rotate"></i></button>
+                      <button type="button" class="btn btn-outline btn-sm" title="Copy" onclick="copyPortalPassword()"><i class="fas fa-copy"></i></button>
+                    </div>
+                    <p id="pwCount" style="font-size:11.5px;color:var(--sub);margin:6px 0 0;font-style:normal;">8/16 characters</p>
+                  </div>
+                </div>
+              </div>
+
               <div class="form-section">
                 <h3>Government & Payroll IDs</h3>
                 <div class="form-grid">
@@ -3082,10 +3850,20 @@
         showToast('Please fill in first name, last name, and position', 'fa-triangle-exclamation');
         return;
       }
+      const portalPassword = document.getElementById('f_password').value.trim();
+      if (!/^[A-Za-z0-9]{8,16}$/.test(portalPassword)) {
+        showToast('Password must be 8–16 characters (letters and numbers only)', 'fa-triangle-exclamation');
+        return;
+      }
+      if (!document.getElementById('f_email').value.trim()) {
+        showToast('Email is required — it is the employee\'s login username', 'fa-triangle-exclamation');
+        return;
+      }
       const id = document.getElementById('f_id').value.trim() || ('BC-2028-' + String(employees.length + 1).padStart(3, '0'));
       const dept = document.getElementById('f_department').value;
       const newEmp = {
         id, first,
+        password: portalPassword,
         middle: document.getElementById('f_middle').value.trim(),
         last,
         dob: document.getElementById('f_dob').value || '-',
@@ -3105,18 +3883,29 @@
         pin: document.getElementById('f_pin').value.trim() || '',
         duties: document.getElementById('f_duties').value.trim() || ''
       };
-      try {
-        await fetch(`${API_BASE_URL}/employees`, {
+            try {
+        const res = await fetch(`${API_BASE_URL}/employees`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(newEmp)
         });
+        const savedEmp = await res.json();
         await reloadAndRender();
+        const pwdBlock = savedEmp.generatedPassword ? `
+              <div style="background:#f6f7fb;border:1px dashed var(--navy-light);border-radius:12px;padding:14px 16px;margin:16px 0;text-align:left;">
+                <div style="font-size:11px;font-weight:700;color:var(--navy-light);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Portal Login Created</div>
+                <div style="font-size:13px;color:var(--sub);margin-bottom:4px;">Username: <strong style="color:var(--ink);">${newEmp.email}</strong></div>
+                <div style="font-size:13px;color:var(--sub);">Password: <strong style="color:var(--ink);">${savedEmp.generatedPassword}</strong>
+                  <button class="btn btn-outline btn-sm" style="margin-left:8px;" onclick="navigator.clipboard.writeText('${savedEmp.generatedPassword}'); showToast('Password copied');"><i class="fas fa-copy"></i> Copy</button>
+                </div>
+                <p style="font-size:11.5px;color:var(--sub);margin:8px 0 0;">Share this with the employee — they can ask HR to reset it later.</p>
+              </div>` : '';
         openModal(`
               <div style="text-align:center;">
                 <div class="success-tick"><i class="fas fa-check"></i></div>
                 <h2 style="margin:0 0 6px;">Employee Added!</h2>
-                <p style="color:var(--sub);margin:0 0 20px;">${first} ${last} has been added to ${dept}.</p>
+                <p style="color:var(--sub);margin:0 0 4px;">${first} ${last} has been added to ${dept}.</p>
+                ${pwdBlock}
                 <button class="btn btn-navy" style="width:100%;" onclick="closeModal(); goTo('employees');">View Employees</button>
               </div>
             `);
@@ -3126,30 +3915,35 @@
     };
 
     function archivePage() {
-      return `
-            <h1 class="page-title">Separated Employees</h1>
-            <p class="page-sub">Records of separated or resigned employees with full details.</p>
-            <div class="panel" style="padding:0;overflow-x:auto;">
-              <table>
-                <thead><tr><th>ID</th><th>Name</th><th>Department</th><th>Position</th><th>Date Hired</th><th>Resign Date</th><th>Status</th><th>Action</th></tr></thead>
-                <tbody>
-                  ${separated.length ? separated.map(e => `
-                    <tr>
-                      <td>${e.id}</td>
-                      <td>${e.first} ${e.last}</td>
-                      <td>${e.department}</td>
-                      <td>${e.position}</td>
-                      <td>${e.dateHired || '-'}</td>
-                      <td>${e.resignDate || '-'}</td>
-                      <td><span class="pill pill-inactive">${e.status}</span></td>
-                      <td><button class="btn btn-outline btn-sm" onclick="viewSeparatedEmployee('${e.id}')">View</button></td>
-                    </tr>
-                  `).join('') : `<tr><td colspan="8"><div class="empty-state"><i class="fas fa-folder-open"></i><p>No separated employees.</p></div></td></tr>`}
-                </tbody>
-              </table>
-            </div>
-          `;
-    }
+  return `
+        <h1 class="page-title">Separated Employees</h1>
+        <p class="page-sub">Resigned employees are kept here with their full record. Click Reactivate to bring someone back.</p>
+        <div class="panel" style="padding:0;overflow-x:auto;">
+          <table>
+            <thead><tr><th>ID</th><th>Name</th><th>Department</th><th>Position</th><th>Date Hired</th><th>Resign Date</th><th>Status</th><th>Action</th></tr></thead>
+            <tbody>
+              ${separated.length ? separated.map(e => `
+                <tr>
+                  <td>${e.id}</td>
+                  <td>${e.first} ${e.last}</td>
+                  <td>${e.department}</td>
+                  <td>${e.position}</td>
+                  <td>${e.dateHired || '-'}</td>
+                  <td>${e.resignDate || '-'}</td>
+                  <td><span class="pill pill-inactive">${e.status}</span></td>
+                  <td>
+                    <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                      <button class="btn btn-outline btn-sm" onclick="viewSeparatedEmployee('${e.id}')">View</button>
+                      <button class="btn btn-green btn-sm" onclick="reactivateEmployee('${e.id}')"><i class="fas fa-user-check"></i> Reactivate</button>
+                    </div>
+                  </td>
+                </tr>
+              `).join('') : `<tr><td colspan="8"><div class="empty-state"><i class="fas fa-folder-open"></i><p>No separated employees.</p></div></td></tr>`}
+            </tbody>
+          </table>
+        </div>
+      `;
+}
 
     // MongoDB ObjectIds encode their creation time in the first 4 bytes —
     // use that to tell which calendar month an announcement was posted in,
@@ -3713,57 +4507,79 @@
     };
 
     window.viewSeparatedEmployee = function(id) {
-      const e = separated.find(x => x.id === id);
-      if (!e) return;
-      openModal(`
-            <button class="modal-close" onclick="closeModal()"><i class="fas fa-times"></i></button>
-            <div style="text-align:center;margin-bottom:16px;">
-              <div class="avatar" style="width:70px;height:70px;font-size:26px;margin:0 auto 10px;"><i class="fas fa-user"></i></div>
-              <h2 style="margin:0;">${e.first} ${e.middle||''} ${e.last}</h2>
-              <p style="color:var(--sub);margin:4px 0;">${e.position} · ${e.department}</p>
-              <span class="pill pill-inactive">${e.status}</span>
-            </div>
-            <div class="modal-row"><span>Employee ID</span><span>${e.id}</span></div>
-            <div class="modal-row"><span>Date of Birth</span><span>${e.dob||'-'}</span></div>
-            <div class="modal-row"><span>Gender</span><span>${e.gender||'-'}</span></div>
-            <div class="modal-row"><span>Date Hired</span><span>${e.dateHired||'-'}</span></div>
-            <div class="modal-row"><span>Resignation Date</span><span style="color:var(--red);font-weight:700;">${e.resignDate || 'Not recorded'}</span></div>
-            <div class="modal-row"><span>Resigned By</span><span>${e.resignedBy || 'HR Admin'}</span></div>
-            <div class="modal-row"><span>Type</span><span>${e.type||'Regular'}</span></div>
-            <div class="modal-row"><span>Salary Grade</span><span>${e.salary||'-'}</span></div>
-            <div class="modal-row"><span>Leave Balance</span><span>${e.leaveBalance !== undefined ? e.leaveBalance + ' day(s)' : '-'}</span></div>
-            <div class="modal-row"><span>Email</span><span>${e.email||'-'}</span></div>
-            <div class="modal-row"><span>Phone</span><span>${e.phone||'-'}</span></div>
-            <div style="margin-top:18px;display:flex;gap:10px;">
-              <button class="btn btn-outline" style="flex:1" onclick="closeModal()">Close</button>
-            </div>
-          `);
-    };
+  const e = separated.find(x => x.id === id);
+  if (!e) return;
+  openModal(`
+        <button class="modal-close" onclick="closeModal()"><i class="fas fa-times"></i></button>
+        <div style="text-align:center;margin-bottom:16px;">
+          <div class="avatar" style="width:70px;height:70px;font-size:26px;margin:0 auto 10px;">${e.photo ? `<img src="${e.photo}" alt="${e.first}" />` : '<i class="fas fa-user"></i>'}</div>
+          <h2 style="margin:0;">${e.first} ${e.middle||''} ${e.last}</h2>
+          <p style="color:var(--sub);margin:4px 0;">${e.position} · ${e.department}</p>
+          <span class="pill pill-inactive">${e.status}</span>
+        </div>
+        <div class="modal-row"><span>Employee ID</span><span>${e.id}</span></div>
+        <div class="modal-row"><span>Date of Birth</span><span>${e.dob||'-'}</span></div>
+        <div class="modal-row"><span>Gender</span><span>${e.gender||'-'}</span></div>
+        <div class="modal-row"><span>Date Hired</span><span>${e.dateHired||'-'}</span></div>
+        <div class="modal-row"><span>Resignation Date</span><span style="color:var(--red);font-weight:700;">${e.resignDate || 'Not recorded'}</span></div>
+        <div class="modal-row"><span>Resigned By</span><span>${e.resignedBy || 'HR Admin'}</span></div>
+        <div class="modal-row"><span>Type</span><span>${e.type||'Regular'}</span></div>
+        <div class="modal-row"><span>Salary Grade</span><span>${e.salary||'-'}</span></div>
+        <div class="modal-row"><span>Leave Balance</span><span>${e.leaveBalance !== undefined ? e.leaveBalance + ' day(s)' : '-'}</span></div>
+        <div class="modal-row"><span>Email</span><span>${e.email||'-'}</span></div>
+        <div class="modal-row"><span>Phone</span><span>${e.phone||'-'}</span></div>
+        <div class="modal-row"><span>SSS Number</span><span>${e.sss || '-'}</span></div>
+        <div class="modal-row"><span>PhilHealth ID</span><span>${e.philhealth || '-'}</span></div>
+        <div class="modal-row"><span>Pag-IBIG ID</span><span>${e.pagibig || '-'}</span></div>
+        <div class="modal-row"><span>TIN Number</span><span>${e.pin || '-'}</span></div>
+        <div style="margin-top:18px;display:flex;gap:10px;flex-wrap:wrap;">
+          <button class="btn btn-outline" style="flex:1;min-width:100px;" onclick="closeModal()">Close</button>
+          <button class="btn btn-green" style="flex:1;min-width:100px;" onclick="reactivateEmployee('${e.id}')"><i class="fas fa-user-check"></i> Reactivate</button>
+        </div>
+      `);
+};
 
-    function employeeLeavePage() {
+window.reactivateEmployee = async function(id) {
+  const e = separated.find(x => x.id === id);
+  if (!e) return;
+  if (!confirm(`Reactivate ${e.first} ${e.last}? They will return to the Employees list with their previous record, leave balance and attendance history.`)) return;
+  try {
+    const res = await fetch(`${API_BASE_URL}/separated/${encodeURIComponent(id)}/reactivate`, { method: 'PUT' });
+    let data = {};
+    try { data = await res.json(); } catch (err) {}
+    if (!res.ok) { showToast(data.error || 'Failed to reactivate', 'fa-triangle-exclamation'); return; }
+    closeModal();
+    await reloadAndRender();
+    showToast(`${e.first} ${e.last} is active again!`);
+  } catch (err) {
+    showToast('Failed to reactivate employee', 'fa-triangle-exclamation');
+  }
+};
+
+              function employeeLeavePage() {
       const e = getCurrentEmployee();
       const myLeaves = leaveRequests.filter(l => (l.email||'').trim().toLowerCase() === (currentUser?.email||'').trim().toLowerCase());
       const bal = e?.leaveBalance !== undefined ? e.leaveBalance : 0;
+      const pendingCount = myLeaves.filter(l => l.status === 'Pending').length;
       return `
-            <h1 class="page-title">Leave Requests</h1>
-            <p class="page-sub">View and file your leave requests. Click any row to track its progress.</p>
-            <div class="info-cards" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));margin-bottom:18px;">
-              <div class="info-card">
-                <div class="icon-wrap">
-                  <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
-                </div>
-                <div class="value">${myLeaves.filter(l=>l.status==='Pending').length}</div>
-                <div class="label">Pending Requests</div>
+            <div class="page-header-flex">
+              <div>
+                <h1 class="page-title" style="margin-bottom:4px;">Leave Requests</h1>
+                <p class="page-sub" style="margin-bottom:0;">View and file your leave requests. Click any row to track its progress.</p>
               </div>
-              <div class="info-card">
-                <div class="icon-wrap">
-                  <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><circle cx="12" cy="15" r="2"/><path d="M12 13v-2"/></svg>
+              <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+                <div style="display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:8px 16px;">
+                  <div style="width:32px;height:32px;border-radius:9px;background:#fdf0dc;display:flex;align-items:center;justify-content:center;color:var(--amber);flex-shrink:0;">
+                    <i class="fas fa-hourglass-half"></i>
+                  </div>
+                  <div>
+                    <div style="font-size:17px;font-weight:800;font-family:'Poppins',sans-serif;line-height:1;">${pendingCount}</div>
+                    <div style="font-size:10px;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:0.5px;">Pending Requests</div>
+                  </div>
                 </div>
-                <div class="value">${bal}</div>
-                <div class="label">Leave Balance</div>
+                <button class="btn btn-navy" style="height:42px;display:inline-flex;align-items:center;gap:8px;" onclick="showFileLeaveModal()"><i class="fas fa-plus"></i> File Leave Request</button>
               </div>
             </div>
-            <button class="btn btn-navy" style="margin-bottom:16px;" onclick="showFileLeaveModal()"><i class="fas fa-plus"></i> File Leave Request</button>
             <div class="panel" style="padding:0;overflow-x:auto;">
               <table>
                 <thead><tr><th>Type</th><th>Dates</th><th>Reason</th><th>Status</th></tr></thead>
@@ -3778,6 +4594,10 @@
                   `).join('') : `<tr><td colspan="4"><div class="empty-state"><i class="fas fa-calendar"></i><p>No leave requests filed yet.</p></div></td></tr>`}
                 </tbody>
               </table>
+              <div style="padding:14px 20px;border-top:1px solid var(--line);display:flex;align-items:center;gap:8px;font-size:13px;color:var(--sub);">
+                <i class="fas fa-wallet" style="color:var(--navy-light);"></i>
+                Leave Balance: <strong style="color:var(--ink);">${bal} day(s)</strong>
+              </div>
             </div>
             ${selectedLeaveRequestId && myLeaves.some(l => l._id === selectedLeaveRequestId) ? leaveTrackerPanelHTML(myLeaves) : ''}
           `;
@@ -3921,33 +4741,190 @@
       }
     };
 
-    function employeeAttendancePage() {
+    async function loadMyAttendance(monthKey) {
+  const e = getCurrentEmployee();
+  if (!e) return;
+  const currentKey = todayStr().slice(0, 7);
+  myAttendanceMonth = monthKey || currentKey;
+  try {
+    const counts = await fetch(`${API_BASE_URL}/attendance/employee/${encodeURIComponent(e.id)}/months`).then(r => r.json());
+    if (counts[currentKey] === undefined) counts[currentKey] = 0;
+    myAttendanceBuckets = Object.keys(counts).sort().reverse().map(key => {
+      const [y, m] = key.split('-').map(Number);
+      return { key, year: y, label: new Date(y, m - 1, 1).toLocaleDateString('en-US', { month: 'long' }), count: counts[key] };
+    });
+    myAttendanceLogs = await fetch(`${API_BASE_URL}/attendance/employee/${encodeURIComponent(e.id)}/${myAttendanceMonth}`).then(r => r.json());
+  } catch (err) {
+    myAttendanceBuckets = []; myAttendanceLogs = [];
+    showToast('Failed to load attendance history', 'fa-triangle-exclamation');
+  }
+}
+
+window.setMyAttendanceMonth = async function(key) {
+  const panel = document.getElementById('myAttendanceArchivePanel');
+  if (panel) panel.classList.remove('show');
+  await loadMyAttendance(key);
+  renderPage();
+};
+
+window.toggleMyAttendanceArchive = function(ev) {
+  if (ev) ev.stopPropagation();
+  const panel = document.getElementById('myAttendanceArchivePanel');
+  if (panel) panel.classList.toggle('show');
+};
+
+document.addEventListener('click', function(ev) {
+  const wrap = document.getElementById('myAttendanceArchiveWrap');
+  const panel = document.getElementById('myAttendanceArchivePanel');
+  if (panel && wrap && !wrap.contains(ev.target)) panel.classList.remove('show');
+});
+
+function employeeAttendancePage() {
   const e = getCurrentEmployee();
   const todayEntry = e ? todayAttendanceStatus.find(r => r.employeeId === e.id) : null;
   const fallback = e ? attendanceLogs.find(l => l.employeeId === e.id && l.date === todayStr()) : null;
   const today = todayEntry || fallback || null;
-  const todayRow = {
-    d: 'Today',
-    tin: today?.timeIn || '-',
-    tout: today?.timeOut || '-',
-    s: today?.status || 'Not Yet Timed In'
-  };
+  const todayStatus = today?.status || 'Not Yet Timed In';
+
+  const currentKey = todayStr().slice(0, 7);
+  const viewing = myAttendanceMonth || currentKey;
+  const [vy, vm] = viewing.split('-').map(Number);
+  const viewingLabel = new Date(vy, vm - 1, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  const isCurrent = viewing === currentKey;
+
+  const logs = myAttendanceLogs;
+  const cnt = s => logs.filter(l => l.status === s).length;
+  const pillClass = s => s === 'Present' ? 'pill-active' : s === 'Late' ? 'pill-leave' : s === 'Undertime' ? 'pill-undertime' : s === 'Absent' ? 'pill-inactive' : 'pill-pending';
+
+  const years = [...new Set(myAttendanceBuckets.map(b => b.year))];
+  const panelItems = years.map(y => `
+    <div style="padding:8px 16px 2px;font-size:11px;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:0.6px;">${y}</div>
+    ${myAttendanceBuckets.filter(b => b.year === y).map(b => `
+      <div class="ma-item ${viewing === b.key ? 'active' : ''}" onclick="setMyAttendanceMonth('${b.key}')">
+        <span><i class="fas fa-calendar" style="margin-right:6px;width:14px;"></i>${b.label}</span>
+        <span class="ma-count">${b.count}</span>
+      </div>`).join('')}
+  `).join('');
+
   return `
-        <h1 class="page-title">Attendance</h1>
-        <p class="page-sub">Your time-in / time-out record for today.</p>
-        <div class="panel" style="padding:0;overflow-x:auto;">
-          <table>
-            <thead><tr><th>Date</th><th>Time In</th><th>Time Out</th><th>Status</th></tr></thead>
-            <tbody>
-              <tr>
-                <td>${todayRow.d}</td><td>${todayRow.tin}</td><td>${todayRow.tout}</td>
-                <td><span class="pill ${todayRow.s==='Present'?'pill-active':(todayRow.s==='Late'?'pill-leave':(todayRow.s==='Undertime'?'pill-undertime':(todayRow.s==='Absent'?'pill-inactive':'pill-pending')))}">${todayRow.s}</span></td>
-              </tr>
-            </tbody>
-          </table>
+    <div class="page-header-flex">
+      <div>
+        <h1 class="page-title" style="margin-bottom:4px;">Attendance</h1>
+        <p class="page-sub" style="margin-bottom:0;">Your full time-in / time-out history. Use Archive to open any past month or year.</p>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+        <div id="myAttendanceArchiveWrap" style="position:relative;">
+          <button class="btn btn-outline" onclick="toggleMyAttendanceArchive(event)"><i class="fas fa-box-archive"></i> ${isCurrent ? 'Archive' : viewingLabel}</button>
+          <div class="month-archive-panel" id="myAttendanceArchivePanel">
+            <div class="ma-item ${isCurrent ? 'active' : ''}" onclick="setMyAttendanceMonth(null)"><i class="fas fa-calendar-day" style="margin-right:6px;"></i>This Month (Latest)</div>
+            <div class="ma-divider"></div>
+            ${panelItems || '<div style="padding:10px 16px;font-size:12px;color:var(--sub);">No records yet.</div>'}
+          </div>
         </div>
-      `;
+        <button class="btn btn-navy" onclick="showMyBiometricLog()"><i class="fas fa-camera"></i> Biometric Log Photo</button>
+      </div>
+    </div>
+
+    <div class="attendance-summary-box" style="margin:0 0 18px;">
+      <div class="as-item"><div class="as-num" style="font-size:15px;">${today?.timeIn || '-'}</div><div class="as-lbl">Today Time In</div></div>
+      <div class="as-item"><div class="as-num" style="font-size:15px;">${today?.timeOut || '-'}</div><div class="as-lbl">Today Time Out</div></div>
+      <div class="as-item"><div class="as-num" style="font-size:15px;">${todayStatus}</div><div class="as-lbl">Today Status</div></div>
+    </div>
+
+    <div class="attendance-summary-box" style="margin:0 0 18px;">
+      <div class="as-item"><div class="as-num">${logs.length}</div><div class="as-lbl">Records</div></div>
+      <div class="as-item"><div class="as-num">${cnt('Present')}</div><div class="as-lbl">Present</div></div>
+      <div class="as-item"><div class="as-num">${cnt('Late')}</div><div class="as-lbl">Late</div></div>
+      <div class="as-item"><div class="as-num">${cnt('Undertime')}</div><div class="as-lbl">Undertime</div></div>
+      <div class="as-item"><div class="as-num">${cnt('Absent')}</div><div class="as-lbl">Absent</div></div>
+    </div>
+
+    <div class="panel" style="padding:0;overflow-x:auto;">
+      <div style="padding:16px 20px;"><h3 style="margin:0;">${isCurrent ? 'This Month — ' : ''}${viewingLabel}</h3></div>
+      <table>
+        <thead><tr><th>Date</th><th>Time In</th><th>Time Out</th><th>Status</th></tr></thead>
+        <tbody>
+          ${logs.length ? logs.map(l => `
+            <tr>
+              <td>${l.date || '-'}</td>
+              <td>${l.timeIn || '-'}</td>
+              <td>${l.timeOut || '-'}</td>
+              <td><span class="pill ${pillClass(l.status)}">${l.status || '-'}</span></td>
+            </tr>`).join('') : `<tr><td colspan="4"><div class="empty-state"><i class="fas fa-fingerprint"></i><p>No attendance records for ${viewingLabel}.</p></div></td></tr>`}
+        </tbody>
+      </table>
+    </div>
+  `;
 }
+
+// Employee: see the biometric log photo(s) that include them + their own time in/out
+window.showMyBiometricLog = async function() {
+  const e = getCurrentEmployee();
+  if (!e) { showToast('Employee record not found', 'fa-triangle-exclamation'); return; }
+
+  openModal(`
+    <button class="modal-close" onclick="closeModal()"><i class="fas fa-times"></i></button>
+    <div style="text-align:center;padding:40px 0;">
+      <i class="fas fa-circle-notch fa-spin" style="font-size:32px;color:var(--orange);"></i>
+      <p style="margin-top:12px;color:var(--sub);">Loading your biometric log…</p>
+    </div>
+  `, true);
+
+  try {
+    const list = await fetch(`${API_BASE_URL}/attendance/biometric-imports/employee/${encodeURIComponent(e.id)}`).then(r => r.json());
+    if (!Array.isArray(list)) throw new Error('bad response');
+
+    const sys = todayAttendanceStatus.find(r => r.employeeId === e.id)
+      || attendanceLogs.find(l => l.employeeId === e.id && l.date === todayStr()) || null;
+    const pill = s => `<span class="pill ${s==='Present'?'pill-active':(s==='Late'?'pill-leave':(s==='Undertime'?'pill-undertime':(s==='Absent'?'pill-inactive':'pill-pending')))}">${escBio(s || '-')}</span>`;
+
+    const sysBox = `
+      <div class="attendance-summary-box" style="margin:0 0 18px;">
+        <div class="as-item"><div class="as-num" style="font-size:15px;">${escBio(sys?.timeIn || '-')}</div><div class="as-lbl">System Time In (Today)</div></div>
+        <div class="as-item"><div class="as-num" style="font-size:15px;">${escBio(sys?.timeOut || '-')}</div><div class="as-lbl">System Time Out (Today)</div></div>
+        <div class="as-item"><div class="as-num" style="font-size:15px;">${escBio(sys?.status || 'Not Yet Timed In')}</div><div class="as-lbl">Status</div></div>
+      </div>`;
+
+    const cards = list.length ? list.map(b => `
+  <div style="border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:16px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;margin-bottom:10px;">
+      <strong style="font-size:13.5px;"><i class="fas fa-camera" style="margin-right:6px;color:var(--orange);"></i>${escBio(b.fileName || 'Biometric photo')}</strong>
+      <span style="font-size:11.5px;color:var(--sub);">Attached ${new Date(b.createdAt).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })}</span>
+    </div>
+    ${b.image ? `<img src="${b.image}" alt="Biometric log photo" style="width:100%;max-height:300px;object-fit:contain;background:#f6f7fb;border-radius:10px;border:1px solid var(--line);cursor:zoom-in;margin-bottom:12px;" onclick="this.style.maxHeight = this.style.maxHeight === 'none' ? '300px' : 'none'" title="Click to enlarge / shrink" />` : ''}
+    ${b.rows.length ? `
+      <table>
+        <thead><tr><th>Date</th><th>Time In</th><th>Time Out</th><th>Status</th></tr></thead>
+        <tbody>
+          ${b.rows.map(r => `
+            <tr>
+              <td>${escBio(r.date || '-')}</td>
+              <td><strong>${escBio(r.timeIn || '-')}</strong></td>
+              <td><strong>${escBio(r.timeOut || '-')}</strong></td>
+              <td>${pill(r.status)}</td>
+            </tr>`).join('')}
+        </tbody>
+      </table>` : `<p style="color:var(--sub);font-size:12.5px;margin:0;">HR attached this photo to your record.</p>`}
+  </div>
+`).join('') : `
+  <div class="empty-state" style="padding:40px 10px;">
+    <i class="fas fa-camera"></i>
+    <p>No biometric log photo has been attached for you by HR yet.</p>
+  </div>`;
+
+    modalBody.innerHTML = `
+      <button class="modal-close" onclick="closeModal()"><i class="fas fa-times"></i></button>
+      <h2 style="margin-top:0;"><i class="fas fa-fingerprint" style="margin-right:8px;color:var(--orange);"></i>My Biometric Log</h2>
+      <p style="color:var(--sub);font-size:13px;margin:0 0 16px;">The biometric photo HR attached, with the exact time you timed in and out.</p>
+      ${sysBox}
+      ${cards}
+      <button class="btn btn-outline" style="width:100%;" onclick="closeModal()">Close</button>
+    `;
+  } catch (err) {
+    closeModal();
+    showToast('Failed to load your biometric log', 'fa-triangle-exclamation');
+  }
+};
 
     function renderStarRating(rating) {
       let stars = '';
@@ -4014,15 +4991,15 @@
     }
 
     const REPORT_TYPES = [
-      { key: 'masterlist', label: 'Employee Masterlist Report', icon: 'fa-address-book', desc: 'Full roster of every employee on file, with contact and employment details.' },
-      { key: 'byDept', label: 'Employee by Department Report', icon: 'fa-building', desc: 'Headcount and roster grouped by department.' },
-      { key: 'attendance', label: 'Attendance Report', icon: 'fa-calendar-check', desc: "Today's attendance breakdown — present, late, absent, and on leave." },
-      { key: 'lateAbsence', label: 'Late, Undertime & Absence Report', icon: 'fa-clock', desc: "Today's late arrivals, undertime, and absences at a glance." },
-      { key: 'leave', label: 'Leave Request Report', icon: 'fa-plane-departure', desc: 'Every leave request on file and its current status.' },
-      { key: 'performance', label: 'Performance Evaluation Report', icon: 'fa-star', desc: 'Roles, duties, and evaluation scores per employee.' },
-      { key: 'separated', label: 'Separated Employee Report', icon: 'fa-user-slash', desc: 'Everyone who has resigned or been separated from the college.' },
-      { key: 'complaints', label: 'Complaint Summary Report', icon: 'fa-comment-dots', desc: 'Complaint volume broken down by status and priority.' }
-    ];
+  { key: 'masterlist', label: 'Employee Masterlist Report', icon: 'fa-address-book', desc: 'Full roster of every employee on file, with contact and employment details.' },
+  { key: 'byDept', label: 'Employee by Department Report', icon: 'fa-building', desc: 'Headcount and roster grouped by department.' },
+  { key: 'attendance', label: 'Attendance Report', icon: 'fa-calendar-check', desc: "Today's attendance, including late arrivals, undertime, and absences." },
+  { key: 'leave', label: 'Leave Request Report', icon: 'fa-plane-departure', desc: 'Every leave request on file and its current status.' },
+  { key: 'complaints', label: 'Complaint Summary Report', icon: 'fa-comment-dots', desc: 'Complaint volume broken down by status and priority.' },
+  { key: 'separated', label: 'Separated Employee Report', icon: 'fa-user-slash', desc: 'Everyone who has resigned or been separated from the college.' },
+  { key: 'announcements', label: 'Announcements Report', icon: 'fa-bullhorn', desc: 'Every announcement posted to staff, newest first.' },
+  { key: 'performance', label: 'Performance Evaluation Report', icon: 'fa-star', desc: 'Roles, duties, and evaluation scores per employee.' }
+  ];
 
     function reportTypeCardHTML(rt) {
       const active = selectedReportType === rt.key;
@@ -4085,7 +5062,7 @@
         case 'masterlist': return masterlistBodyHTML();
         case 'byDept': return byDeptBodyHTML();
         case 'attendance': return attendanceReportBodyHTML();
-        case 'lateAbsence': return lateAbsenceBodyHTML();
+        case 'announcements': return announcementsReportBodyHTML();
         case 'leave': return leaveReportBodyHTML();
         case 'performance': return performanceBodyHTML();
         case 'separated': return separatedReportBodyHTML();
@@ -4112,46 +5089,72 @@
       `;
     }
 
-    function byDeptBodyHTML() {
-      const sorted = [...departments].sort((a, b) => a.name.localeCompare(b.name));
-      if (!sorted.length) return `<div class="empty-state"><i class="fas fa-building"></i><p>No departments on file.</p></div>`;
-      return sorted.map(d => {
-        const staff = employees.filter(e => e.department === d.name);
-        return `
-          <div style="margin-bottom:20px;">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-              <strong style="font-size:13.5px;">${d.name}</strong>
-              <span class="pill pill-active">${staff.length} employee(s)</span>
-            </div>
-            ${staff.length ? `<table><thead><tr><th>Name</th><th>Position</th><th>Status</th></tr></thead><tbody>
-              ${staff.map(e => `<tr><td>${e.first} ${e.last}</td><td>${e.position}</td><td><span class="pill ${e.status==='Active'?'pill-active':(e.status==='On Leave'?'pill-leave':'pill-inactive')}">${e.status}</span></td></tr>`).join('')}
-            </tbody></table>` : `<p style="color:var(--sub);font-size:12px;">No employees assigned yet.</p>`}
-          </div>
-        `;
-      }).join('');
-    }
+   function byDeptBodyHTML() {
+  const sorted = [...departments].sort((a, b) => a.name.localeCompare(b.name));
+  if (!sorted.length) return `<div class="empty-state"><i class="fas fa-building"></i><p>No departments on file.</p></div>`;
+  return sorted.map((d, i) => {
+    const staff = employees.filter(e => e.department === d.name);
+    const isLast = i === sorted.length - 1;
+    return `
+      <div style="padding:18px 0;${isLast ? '' : 'border-bottom:3px solid #d9dcea;'}page-break-inside:avoid;">
+        <div style="display:flex;justify-content:space-between;align-items:center;background:#eef0f8;border-left:4px solid #1b2a70;border-radius:8px;padding:10px 14px;margin-bottom:10px;-webkit-print-color-adjust:exact;print-color-adjust:exact;">
+          <strong style="font-size:14px;color:#0d1642;">${d.name}</strong>
+          <span class="pill pill-active">${staff.length} employee(s)</span>
+        </div>
+        ${staff.length ? `<table><thead><tr><th>Name</th><th>Position</th><th>Status</th></tr></thead><tbody>
+          ${staff.map(e => `<tr><td>${e.first} ${e.last}</td><td>${e.position}</td><td><span class="pill ${e.status==='Active'?'pill-active':(e.status==='On Leave'?'pill-leave':'pill-inactive')}">${e.status}</span></td></tr>`).join('')}
+        </tbody></table>` : `<p style="color:#6b7085;font-size:12px;margin:6px 4px 0;">No employees assigned yet.</p>`}
+      </div>
+    `;
+  }).join('');
+}
 
         function attendanceReportBodyHTML() {
-      const rows = todayAttendanceStatus.length ? todayAttendanceStatus : attendanceLogs;
-      const present = rows.filter(r => r.status === 'Present').length;
-      const late = rows.filter(r => r.status === 'Late').length;
-      const undertime = rows.filter(r => r.status === 'Undertime').length;
-      const absent = rows.filter(r => r.status === 'Absent').length;
-      const onLeave = rows.filter(r => r.status === 'On Leave').length;
-      return `
-        <div class="attendance-summary-box" style="margin-bottom:16px;">
-          <div class="as-item"><div class="as-num">${present}</div><div class="as-lbl">Present</div></div>
-          <div class="as-item"><div class="as-num">${late}</div><div class="as-lbl">Late</div></div>
-          <div class="as-item"><div class="as-num">${undertime}</div><div class="as-lbl">Undertime</div></div>
-          <div class="as-item"><div class="as-num">${absent}</div><div class="as-lbl">Absent</div></div>
-          <div class="as-item"><div class="as-num">${onLeave}</div><div class="as-lbl">On Leave</div></div>
-        </div>
-        <table><thead><tr><th>Employee</th><th>Department</th><th>Time In</th><th>Time Out</th><th>Status</th></tr></thead>
-        <tbody>
-          ${rows.length ? rows.map(l => `<tr><td>${l.name}</td><td>${l.department}</td><td>${l.timeIn||'-'}</td><td>${l.timeOut||'-'}</td><td><span class="pill ${l.status==='Present'?'pill-active':(l.status==='Late'?'pill-leave':(l.status==='Undertime'?'pill-undertime':(l.status==='Absent'?'pill-inactive':'pill-leave')))}">${l.status}</span></td></tr>`).join('') : `<tr><td colspan="5"><div class="empty-state"><i class="fas fa-fingerprint"></i><p>No attendance data for today.</p></div></td></tr>`}
-        </tbody></table>
-      `;
-    }
+  const rows = todayAttendanceStatus.length ? todayAttendanceStatus : attendanceLogs;
+  const present = rows.filter(r => r.status === 'Present').length;
+  const late = rows.filter(r => r.status === 'Late').length;
+  const undertime = rows.filter(r => r.status === 'Undertime').length;
+  const absent = rows.filter(r => r.status === 'Absent').length;
+  const onLeave = rows.filter(r => r.status === 'On Leave').length;
+  const exceptions = rows.filter(r => r.status === 'Late' || r.status === 'Undertime' || r.status === 'Absent');
+  const cls = s => s==='Present' ? 'pill-active' : (s==='Late' ? 'pill-leave' : (s==='Undertime' ? 'pill-undertime' : (s==='Absent' ? 'pill-inactive' : 'pill-leave')));
+  const rowHTML = l => `<tr><td>${l.name}</td><td>${l.department}</td><td>${l.timeIn||'-'}</td><td>${l.timeOut||'-'}</td><td><span class="pill ${cls(l.status)}">${l.status}</span></td></tr>`;
+  const head = `<thead><tr><th>Employee</th><th>Department</th><th>Time In</th><th>Time Out</th><th>Status</th></tr></thead>`;
+  return `
+    <div class="attendance-summary-box" style="margin-bottom:16px;">
+      <div class="as-item"><div class="as-num">${present}</div><div class="as-lbl">Present</div></div>
+      <div class="as-item"><div class="as-num">${late}</div><div class="as-lbl">Late</div></div>
+      <div class="as-item"><div class="as-num">${undertime}</div><div class="as-lbl">Undertime</div></div>
+      <div class="as-item"><div class="as-num">${absent}</div><div class="as-lbl">Absent</div></div>
+      <div class="as-item"><div class="as-num">${onLeave}</div><div class="as-lbl">On Leave</div></div>
+    </div>
+    <table>${head}<tbody>
+      ${rows.length ? rows.map(rowHTML).join('') : `<tr><td colspan="5"><div class="empty-state"><i class="fas fa-fingerprint"></i><p>No attendance data for today.</p></div></td></tr>`}
+    </tbody></table>
+    <div style="margin-top:24px;padding-top:18px;border-top:2px solid #d9dcea;">
+      <strong style="font-size:14px;">Late, Undertime &amp; Absences</strong>
+      <span style="color:#6b7085;font-size:12px;margin-left:8px;">${exceptions.length} record(s) today</span>
+      <table style="margin-top:10px;">${head}<tbody>
+        ${exceptions.length ? exceptions.map(rowHTML).join('') : `<tr><td colspan="5" style="text-align:center;color:#6b7085;padding:18px;">No late, undertime, or absent records for today.</td></tr>`}
+      </tbody></table>
+    </div>
+  `;
+}
+
+function announcementsReportBodyHTML() {
+  return `
+    <table>
+      <thead><tr><th>Title</th><th>Details</th><th>Posted</th></tr></thead>
+      <tbody>
+        ${announcements.length ? announcements.map(a => {
+          const d = getAnnouncementDate(a);
+          return `<tr><td>${a.title}</td><td>${a.meta || '-'}</td><td>${d ? d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : (a.when || '-')}</td></tr>`;
+        }).join('') : `<tr><td colspan="3"><div class="empty-state"><i class="fas fa-bullhorn"></i><p>No announcements on file.</p></div></td></tr>`}
+      </tbody>
+    </table>
+    <p style="color:#6b7085;font-size:12px;margin-top:12px;">${announcements.length} announcement(s) total.</p>
+  `;
+}
 
       function lateAbsenceBodyHTML() {
       const rows = (todayAttendanceStatus.length ? todayAttendanceStatus : attendanceLogs).filter(r => r.status === 'Late' || r.status === 'Absent' || r.status === 'Undertime');
@@ -4282,6 +5285,22 @@
             .pill, .prio { display: inline-block; }
             .footer { margin-top: 30px; font-size: 11px; color: #6b7085; text-align: center; border-top: 1px solid #e7e9f2; padding-top: 10px; }
             @media print { .no-print { display: none; } }
+
+            /* ─── Login page: live clock card (same look as the sidebar's) ─── */
+.auth-live-clock { position: relative; z-index: 1; width: 100%; max-width: 330px; margin: 28px auto 0; }
+
+/* ─── Employee sidebar: Quick Time In / Time Out ─── */
+.sb-quick { background: rgba(255,255,255,0.06); border-radius: 14px; padding: 12px; margin-bottom: 10px; }
+.sb-quick-label { font-size: 10px; font-weight: 700; letter-spacing: 0.9px; text-transform: uppercase; color: #a9b0d8; text-align: center; margin-bottom: 8px; }
+.sb-quick-btns { display: flex; gap: 8px; }
+.sb-quick-btn { flex: 1; padding: 9px 6px; border: none; border-radius: 10px; font-size: 11.5px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; font-family: inherit; transition: all 0.15s; }
+.sb-quick-btn.in { background: #26533b; color: #d9f7e3; }
+.sb-quick-btn.in:hover:not(:disabled) { background: var(--green); color: #fff; }
+.sb-quick-btn.out { background: #542722; color: #f7dcd9; }
+.sb-quick-btn.out:hover:not(:disabled) { background: var(--red); color: #fff; }
+.sb-quick-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.sb-quick-status { margin-top: 8px; font-size: 10.5px; color: rgba(255,255,255,0.72); text-align: center; min-height: 14px; line-height: 1.4; }
+.sb-quick-status strong { color: #fff; }
         </style>
         </head>
         <body>
@@ -4531,6 +5550,251 @@
           `).join('') || '<div style="padding:20px;color:var(--sub);text-align:center;">No notifications</div>';
       updateBellBadge();
     }
+
+    // ═══════════ FINAL BIOMETRIC PHOTO CODE (overrides older copies) ═══════════
+window.handleBioFile = async function(input) {
+  const file = input.files && input.files[0];
+  if (!file) return;
+  if (!file.type.startsWith('image/')) { showToast('Please choose an image file', 'fa-triangle-exclamation'); return; }
+  window._bioFile = file;
+  window._bioThumb = '';
+  try {
+    window._bioThumb = await resizeImageToDataURL(file);
+  } catch (e) {
+    // fallback: use the original file if it is small enough
+    if (file.size < 4 * 1024 * 1024) {
+      window._bioThumb = await new Promise((resolve, reject) => {
+        const fr = new FileReader();
+        fr.onload = () => resolve(fr.result);
+        fr.onerror = reject;
+        fr.readAsDataURL(file);
+      });
+    }
+  }
+  const img = document.getElementById('bp_preview');
+  if (img) {
+    img.src = window._bioThumb || URL.createObjectURL(file);
+    img.style.display = 'block';
+  }
+  if (!window._bioThumb) showToast('Could not process this image. Try a JPG or PNG under 4 MB.', 'fa-triangle-exclamation');
+};
+
+function parseBiometricText(text, defaultDate) {
+  const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  const textDate = extractBioDate(text);
+  const groups = {};
+  const unmatched = [];
+  lines.forEach(line => {
+    const emp = matchEmployeeInBioLine(line);
+    const date = extractBioDate(line) || textDate || defaultDate;
+    if (emp) {
+      const key = emp.id + '|' + date;
+      if (!groups[key]) groups[key] = { emp, date, times: [] };
+      groups[key].times.push(...timesInLine(line));
+    } else {
+      const times = timesInLine(line);
+      if (times.length) unmatched.push({ line, date, times });
+    }
+  });
+  const rows = Object.values(groups).map(g => {
+    const { timeIn, timeOut } = pickInOut(g.times);
+    return {
+      include: !!(timeIn || timeOut), unmatched: false,
+      employeeId: g.emp.id, name: `${g.emp.first} ${g.emp.last}`, department: g.emp.department, position: g.emp.position,
+      date: g.date, timeIn, timeOut, rawLine: ''
+    };
+  });
+  unmatched.forEach(u => {
+    const { timeIn, timeOut } = pickInOut(u.times);
+    rows.push({ include: false, unmatched: true, employeeId: '', name: '', department: '', position: '', date: u.date, timeIn, timeOut, rawLine: u.line });
+  });
+  return rows;
+}
+
+window.runBiometricOCR = async function() {
+  const statusEl = document.getElementById('bp_status');
+  if (!window._bioFile) { showToast('Please choose a photo first', 'fa-triangle-exclamation'); return; }
+  if (typeof Tesseract === 'undefined') { showToast('Photo reader failed to load. Check your internet connection.', 'fa-triangle-exclamation'); return; }
+  statusEl.textContent = 'Reading photo… 0%';
+  try {
+    const result = await Tesseract.recognize(window._bioFile, 'eng', {
+      logger: m => { if (m.status === 'recognizing text') statusEl.textContent = 'Reading photo… ' + Math.round(m.progress * 100) + '%'; }
+    });
+    window._bioRaw = result.data.text || '';
+    const defaultDate = document.getElementById('bp_date').value || todayStr();
+    window._bioRows = parseBiometricText(window._bioRaw, defaultDate);
+    statusEl.textContent = window._bioRows.length
+      ? 'Check the rows below, then press Save Photo & Attach.'
+      : 'No names or times found in the photo. You can still tick employees above and save it.';
+    renderBioRows();
+  } catch (err) {
+    console.error(err);
+    statusEl.textContent = 'Could not read the photo. You can still tick employees above and save it.';
+  }
+};
+
+function renderBioRows() {
+  const box = document.getElementById('bp_results');
+  if (!box) return;
+  const rows = window._bioRows;
+  if (!rows.length) { box.innerHTML = ''; return; }
+  const inp = 'width:100%;padding:7px 8px;border:1px solid var(--line);border-radius:8px;background:#f6f7fb;font-size:12.5px;font-family:inherit;';
+  const empOptions = employees.filter(e => e.status !== 'Inactive')
+    .map(e => `<option value="${e.id}">${escBio(e.first)} ${escBio(e.last)} (${escBio(e.id)})</option>`).join('');
+  box.innerHTML = `
+    <div style="max-height:260px;overflow:auto;border:1px solid var(--line);border-radius:12px;">
+      <table>
+        <thead><tr><th></th><th>Employee</th><th>Date</th><th>Time In</th><th>Time Out</th><th>Status</th></tr></thead>
+        <tbody>
+          ${rows.map((r, i) => `
+            <tr>
+              <td><input type="checkbox" ${r.include ? 'checked' : ''} ${r.unmatched ? 'disabled' : ''} onchange="_bioRows[${i}].include=this.checked" /></td>
+              <td style="min-width:190px;">
+                ${r.unmatched ? `
+                  <select style="${inp}" onchange="assignBioRow(${i}, this.value)"><option value="">Not on file — choose employee</option>${empOptions}</select>
+                  <div style="font-size:10.5px;color:var(--sub);margin-top:3px;">Read: ${escBio(r.rawLine)}</div>
+                ` : `
+                  <strong>${escBio(r.name)}</strong>
+                  <div style="font-size:11px;color:var(--sub);">${escBio(r.employeeId)} · ${escBio(r.position)}</div>
+                `}
+              </td>
+              <td><input type="date" value="${r.date}" style="${inp}" onchange="_bioRows[${i}].date=this.value" /></td>
+              <td><input type="text" value="${escBio(r.timeIn)}" placeholder="8:03 AM" style="${inp}" oninput="_bioRows[${i}].timeIn=this.value" /></td>
+              <td><input type="text" value="${escBio(r.timeOut)}" placeholder="5:47 PM" style="${inp}" oninput="_bioRows[${i}].timeOut=this.value" /></td>
+              <td>${(() => { const s = bioStatusPreview(r.timeIn, r.timeOut); return s ? `<span class="pill ${s==='Present'?'pill-active':(s==='Late'?'pill-leave':'pill-undertime')}">${s}</span>` : '-'; })()}</td>
+            </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+window.saveBiometricPhotoRows = async function() {
+  if (!window._bioFile) { showToast('Please choose a photo first', 'fa-triangle-exclamation'); return; }
+  if (!window._bioThumb) { showToast('This photo could not be processed. Try a JPG or PNG.', 'fa-triangle-exclamation'); return; }
+  const assignedTo = Array.from(document.querySelectorAll('.bp_emp:checked')).map(c => c.value);
+  const rows = [];
+  for (const r of (window._bioRows || [])) {
+    const tin = r.timeIn ? normalizeBioTime(r.timeIn) : '';
+    const tout = r.timeOut ? normalizeBioTime(r.timeOut) : '';
+    if (r.include && ((r.timeIn && !tin) || (r.timeOut && !tout))) {
+      showToast(`Fix the time format for ${r.name || 'a row'} (example: 8:03 AM)`, 'fa-triangle-exclamation');
+      return;
+    }
+    rows.push({ ...r, timeIn: tin || '', timeOut: tout || '' });
+  }
+  const hasRows = rows.some(r => r.include && r.employeeId);
+  if (!hasRows && !assignedTo.length) {
+    showToast('Tick at least one employee to show this photo to', 'fa-triangle-exclamation');
+    return;
+  }
+  try {
+    const res = await fetch(`${API_BASE_URL}/attendance/biometric-import`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        fileName: window._bioFile.name,
+        image: window._bioThumb,
+        rawText: window._bioRaw || '',
+        importedBy: currentUser.name,
+        assignedTo,
+        rows
+      })
+    });
+    let data = {};
+    try { data = await res.json(); } catch (e) {}
+    if (!res.ok) { showToast(data.error || ('Server error ' + res.status), 'fa-triangle-exclamation'); return; }
+    closeModal();
+    await goTo('attendance');
+    showToast(hasRows ? `Photo attached — ${data.saved} employee(s) updated` : `Photo attached to ${assignedTo.length} employee(s)`);
+  } catch (err) {
+    showToast('Could not reach the server', 'fa-triangle-exclamation');
+  }
+};
+// ═══════════ END FINAL BIOMETRIC PHOTO CODE ═══════════
+
+    // ═══════════ ATTACH ANY PHOTO (overrides older versions) ═══════════
+window.showBiometricPhotoModal = function() {
+  window._bioFile = null; window._bioRows = []; window._bioRaw = ''; window._bioThumb = '';
+  const activeEmps = employees.filter(e => e.status !== 'Inactive');
+  openModal(`
+    <button class="modal-close" onclick="closeModal()"><i class="fas fa-times"></i></button>
+    <h2 style="margin-top:0;"><i class="fas fa-camera" style="margin-right:8px;color:var(--navy-light);"></i>Attach Biometric Photo</h2>
+    <p style="color:var(--sub);font-size:13px;margin:0 0 14px;">Attach any photo (JPG, PNG, screenshot, etc.). Pick the employees who should see it. Reading names/times from the photo is optional.</p>
+    <div class="form-grid" style="grid-template-columns:1fr 1fr;align-items:end;">
+      <div class="field"><label>Default date (used if the photo has no date)</label><input id="bp_date" type="date" value="${todayStr()}" /></div>
+      <div class="field"><label>Photo</label><input id="bp_file" type="file" accept="image/*" onchange="handleBioFile(this)" /></div>
+    </div>
+    <img id="bp_preview" style="display:none;max-width:100%;max-height:220px;border-radius:10px;border:1px solid var(--line);margin:8px 0;" />
+    <div class="field" style="margin-top:10px;">
+      <label style="display:flex;justify-content:space-between;align-items:center;">
+        <span>Show this photo to these employees</span>
+        <span style="font-style:normal;">
+          <a href="#" onclick="event.preventDefault();toggleAllBioEmps(true)" style="color:var(--navy-light);font-weight:700;font-size:12px;text-decoration:none;">Select all</a>
+          &nbsp;·&nbsp;
+          <a href="#" onclick="event.preventDefault();toggleAllBioEmps(false)" style="color:var(--sub);font-weight:700;font-size:12px;text-decoration:none;">Clear</a>
+        </span>
+      </label>
+      <div style="max-height:150px;overflow:auto;border:1px solid var(--line);border-radius:10px;padding:8px 12px;background:#f6f7fb;">
+        ${activeEmps.map(e => `<label style="display:flex;gap:8px;align-items:center;font-size:12.5px;font-style:normal;color:var(--ink);padding:3px 0;cursor:pointer;margin:0;"><input type="checkbox" class="bp_emp" value="${e.id}" style="width:auto;" /> ${escBio(e.first)} ${escBio(e.last)} (${escBio(e.id)})</label>`).join('')}
+      </div>
+    </div>
+    <button class="btn btn-outline" style="width:100%;margin-top:10px;" onclick="runBiometricOCR()"><i class="fas fa-magnifying-glass"></i> Read Photo for Names &amp; Times (optional)</button>
+    <div id="bp_status" style="font-size:12.5px;color:var(--sub);text-align:center;margin:10px 0;min-height:16px;"></div>
+    <div id="bp_results"></div>
+    <button id="bpSaveBtn" class="btn btn-navy" style="width:100%;margin-top:14px;" onclick="saveBiometricPhotoRows()"><i class="fas fa-check"></i> Save Photo &amp; Attach</button>
+  `, true);
+};
+
+window.toggleAllBioEmps = function(checked) {
+  document.querySelectorAll('.bp_emp').forEach(c => c.checked = checked);
+};
+
+window.saveBiometricPhotoRows = async function() {
+  if (!window._bioFile) { showToast('Please choose a photo first', 'fa-triangle-exclamation'); return; }
+  if (!window._bioThumb) { showToast('This photo could not be processed. Try a JPG or PNG.', 'fa-triangle-exclamation'); return; }
+  const assignedTo = Array.from(document.querySelectorAll('.bp_emp:checked')).map(c => c.value);
+  const rows = [];
+  for (const r of (window._bioRows || [])) {
+    const tin = r.timeIn ? normalizeBioTime(r.timeIn) : '';
+    const tout = r.timeOut ? normalizeBioTime(r.timeOut) : '';
+    if (r.include && ((r.timeIn && !tin) || (r.timeOut && !tout))) {
+      showToast(`Fix the time format for ${r.name || 'a row'} (example: 8:03 AM)`, 'fa-triangle-exclamation');
+      return;
+    }
+    rows.push({ ...r, timeIn: tin || '', timeOut: tout || '' });
+  }
+  const hasRows = rows.some(r => r.include && r.employeeId);
+  const btn = document.getElementById('bpSaveBtn');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Saving…'; }
+  try {
+    const res = await fetch(`${API_BASE_URL}/attendance/biometric-import`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        fileName: window._bioFile.name,
+        image: window._bioThumb,
+        rawText: window._bioRaw || '',
+        importedBy: currentUser.name,
+        assignedTo,
+        rows
+      })
+    });
+    let data = {};
+    try { data = await res.json(); } catch (e) {}
+    if (!res.ok) { showToast(data.error || ('Server error ' + res.status), 'fa-triangle-exclamation'); return; }
+    closeModal();
+    await goTo('attendance');
+    showToast(hasRows
+      ? `Photo attached — ${data.saved} employee(s) updated`
+      : (assignedTo.length ? `Photo attached and shown to ${assignedTo.length} employee(s)` : 'Photo attached (not shown to any employee yet)'));
+  } catch (err) {
+    showToast('Could not reach the server', 'fa-triangle-exclamation');
+  } finally {
+    const b2 = document.getElementById('bpSaveBtn');
+    if (b2) { b2.disabled = false; b2.innerHTML = '<i class="fas fa-check"></i> Save Photo &amp; Attach'; }
+  }
+};
+// ═══════════ END ATTACH ANY PHOTO ═══════════
 
     (async function boot() {
       const storedUser = localStorage.getItem('bc_user');

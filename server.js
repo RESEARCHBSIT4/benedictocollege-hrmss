@@ -7,16 +7,20 @@ const path = require('path');
 
 const app = express();
 
-// ─────────────────────────────────────
-// CORS
-// ─────────────────────────────────────
+const bcrypt = require('bcryptjs');
+
+// True if the string already looks like a bcrypt hash
+function isHashed(str) {
+  return /^\$2[aby]\$\d{2}\$/.test(String(str || ''));
+}
+
 app.use(cors({
   origin: '*',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
-app.use(express.json());
+app.use(express.json({ limit: '15mb' }));
 
 // Serve your HTML, CSS, JS, images, etc.
 app.use(express.static(path.join(__dirname)));
@@ -48,6 +52,55 @@ mongoose.connect(process.env.MONGODB_URI || '', {
 });
 
 // ─── Schemas ───
+// Generates an easy-to-remember password: Word + 4-digit number (8+ chars)
+const PASSWORD_WORDS = ['Sunny','Happy','Eagle','Tiger','River','Cloud','Maple','Coral','Amber','Comet','Delta','Ember','Falcon','Grove','Harbor','Ivory','Jolly','Koala','Lemon','Mango','Nova','Ocean','Pearl','Quartz','Ridge','Storm','Talon','Unity','Violet'];
+function generateEasyPassword() {
+  const letters = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz';
+  const digits = '23456789';
+  const all = letters + digits;
+  const pick = s => s[Math.floor(Math.random() * s.length)];
+  const chars = [pick(letters), pick(digits)];
+  while (chars.length < 8) chars.push(pick(all));
+  return chars.sort(() => Math.random() - 0.5).join('');
+}
+
+// "8:05 AM" -> 8.083 (for comparing biometric times against cutoffs)
+function parseTimeToHourFloat(str) {
+  const m = String(str).trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+  if (!m) return 0;
+  let h = parseInt(m[1], 10);
+  const min = parseInt(m[2], 10);
+  const ampm = m[3].toUpperCase();
+  if (ampm === 'PM' && h !== 12) h += 12;
+  if (ampm === 'AM' && h === 12) h = 0;
+  return h + min / 60;
+}
+
+// ─── Philippine Time (Asia/Manila) — never depends on any laptop or server timezone ───
+function manilaNow() {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', hour12: false
+  }).formatToParts(new Date());
+  const p = {};
+  parts.forEach(x => { p[x.type] = x.value; });
+  const hour = parseInt(p.hour, 10) % 24;
+  const minute = parseInt(p.minute, 10);
+  const h12 = hour % 12 || 12;
+  return {
+    date: `${p.year}-${p.month}-${p.day}`,
+    hour, minute,
+    hourFloat: hour + minute / 60,
+    timeStr: `${h12}:${p.minute} ${hour >= 12 ? 'PM' : 'AM'}`
+  };
+}
+
+// Clients sync their clock from here
+app.get('/api/time', (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.json({ serverMs: Date.now(), ...manilaNow() });
+});
+
 const User = mongoose.model('User', new mongoose.Schema({
   name: String,
   email: String,
@@ -81,7 +134,10 @@ const Separated = mongoose.model('Separated', new mongoose.Schema({
   dob: String, gender: String, position: String, department: String,
   dateHired: String, salary: String, status: String, type: String,
   email: String, phone: String, regularization: String, yearsOfService: Number,
-  resignDate: String, resignedBy: String
+  resignDate: String, resignedBy: String,
+  leaveBalance: Number,
+  sss: String, philhealth: String, pagibig: String, pin: String,
+  duties: String, photo: String
 }));
 
 const Department = mongoose.model('Department', new mongoose.Schema({
@@ -99,7 +155,8 @@ const Complaint = mongoose.model('Complaint', new mongoose.Schema({
 
 const AttendanceLog = mongoose.model('AttendanceLog', new mongoose.Schema({
   employeeId: String, name: String, department: String,
-  date: String, timeIn: String, timeOut: String, status: String
+  date: String, timeIn: String, timeOut: String, status: String,
+  source: { type: String, default: 'Manual' }
 }));
 
 const Announcement = mongoose.model('Announcement', new mongoose.Schema({
@@ -137,14 +194,28 @@ const Report = mongoose.model('Report', new mongoose.Schema({
   }
 }));
 
+const BiometricImport = mongoose.models.BiometricImport || mongoose.model('BiometricImport', new mongoose.Schema({
+  fileName: String,
+  image: String,
+  rawText: String,
+  importedBy: String,
+  savedCount: Number,
+  assignedTo: [String],
+  createdAt: { type: Date, default: Date.now },
+  rows: [{
+    employeeId: String, name: String, department: String, position: String,
+    date: String, timeIn: String, timeOut: String, status: String, matched: Boolean
+  }]
+}));
+
 // ─── Seed Data ───
 async function seed() {
   try {
     const userCount = await User.countDocuments();
     if (userCount === 0) {
       await User.insertMany([
-        { name: 'HR Admin', email: 'admin@benedicto.edu', password: 'admin123', role: 'admin', phone: '0917-555-0000', position: 'HR Manager' },
-        { name: 'Emma Santos', email: 'emma.santos@benedicto.edu', password: 'employee123', role: 'employee' }
+      { name: 'HR Admin', email: 'admin@benedicto.edu', password: bcrypt.hashSync('ChangeThisNow#2026', 12), role: 'admin', phone: '0917-555-0000', position: 'HR Manager' },
+      { name: 'Emma Santos', email: 'emma.santos@benedicto.edu', password: bcrypt.hashSync('ChangeThisToo#2026', 12), role: 'employee' }
       ]);
       console.log('✅ Default users created');
     }
@@ -293,6 +364,26 @@ async function seed() {
 }
 seed();
 
+// One-time cleanup: anyone still marked Inactive in Employees moves to Separated
+async function cleanupInactiveEmployees() {
+  try {
+    const inactive = await Employee.find({ status: 'Inactive' });
+    for (const emp of inactive) {
+      const existing = await Separated.findOne({ id: emp.id });
+      const data = emp.toObject();
+      delete data._id; delete data.__v;
+      data.resignDate = data.resignDate || (existing && existing.resignDate) || new Date().toISOString().slice(0, 10);
+      data.resignedBy = (existing && existing.resignedBy) || 'HR Admin';
+      await Separated.findOneAndUpdate({ id: emp.id }, data, { upsert: true, new: true });
+      await Employee.deleteOne({ id: emp.id });
+    }
+    if (inactive.length) console.log(`✅ Moved ${inactive.length} inactive employee(s) to Separated`);
+  } catch (err) {
+    console.error('Cleanup error:', err.message);
+  }
+}
+seed().then(cleanupInactiveEmployees);
+
 // Helper: case/whitespace-insensitive exact email match.
 // Prevents "record not found" / failed lookups caused by casing or stray
 // spaces between the User record and the Employee record.
@@ -301,13 +392,51 @@ function emailMatch(email) {
   return { $regex: new RegExp('^' + clean.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '$', 'i') };
 }
 
+app.get('/api/attendance/biometric-imports/employee/:employeeId', async (req, res) => {
+  try {
+    const { employeeId } = req.params;
+    const docs = await BiometricImport.find({
+      $or: [{ 'rows.employeeId': employeeId }, { assignedTo: employeeId }]
+    }).sort({ createdAt: -1 }).limit(30);
+    res.json(docs.map(d => ({
+      _id: d._id,
+      fileName: d.fileName,
+      image: d.image,
+      createdAt: d.createdAt,
+      rows: (d.rows || []).filter(r => r.employeeId === employeeId && r.matched)
+    })));
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch your biometric photos' });
+  }
+});
+
 // ─── Auth Routes ───
 app.post('/api/auth/login', async (req, res) => {
   try {
     const { email, password } = req.body;
-    const user = await User.findOne({ email: emailMatch(email), password });
+    if (!email || !password) return res.status(401).json({ error: 'Invalid email or password.' });
+
+    const user = await User.findOne({ email: emailMatch(email) });
     if (!user) return res.status(401).json({ error: 'Invalid email or password.' });
-    res.json({ user: { name: user.name, email: user.email, role: user.role, phone: user.phone, position: user.position, photo: user.photo }, token: 'demo-token-' + user._id });
+
+    let ok = false;
+    if (isHashed(user.password)) {
+      ok = await bcrypt.compare(password, user.password);
+    } else if (user.password === password) {
+      // Old plain-text account: let them in once, then upgrade it to a hash
+      ok = true;
+      user.password = await bcrypt.hash(password, 12);
+      await user.save();
+    }
+
+    if (!ok) return res.status(401).json({ error: 'Invalid email or password.' });
+    const isSeparated = await Separated.findOne({ email: emailMatch(user.email) });
+    if (isSeparated) return res.status(403).json({ error: 'This account is deactivated. Please contact HR.' });
+
+    res.json({
+      user: { name: user.name, email: user.email, role: user.role, phone: user.phone, position: user.position, photo: user.photo },
+      token: 'demo-token-' + user._id
+    });
   } catch (error) {
     res.status(500).json({ error: 'Login failed' });
   }
@@ -341,10 +470,8 @@ app.get('/api/employees', async (req, res) => {
   }
 });
 
-// TEMPORARY — delete after running once
 app.get('/api/dev/clear-today-attendance', async (req, res) => {
-  const today = new Date().toISOString().slice(0, 10);
-  const result = await AttendanceLog.deleteMany({ date: today });
+  const result = await AttendanceLog.deleteMany({ date: manilaNow().date });
   res.json({ deleted: result.deletedCount });
 });
 
@@ -360,13 +487,317 @@ app.get('/api/employees/by-email/:email', async (req, res) => {
 
 app.post('/api/employees', async (req, res) => {
   try {
-    const emp = new Employee(req.body);
+    const { password, ...empData } = req.body;   // keep password out of the Employee record
+    const emp = new Employee(empData);
     await emp.save();
     await Department.updateOne({ name: emp.department }, { $inc: { count: 1 } });
     await Activity.create({ icon: 'fa-user-plus', text: `${emp.first} ${emp.last} added to ${emp.department}`, when: 'just now' });
-    res.json(emp);
+
+    // Create the portal login using the password HR saw on the form (8–16 letters/numbers)
+    let generatedPassword = null;
+    if (emp.email && emp.email !== '-') {
+      const existingUser = await User.findOne({ email: emailMatch(emp.email) });
+      if (!existingUser) {
+        generatedPassword = /^[A-Za-z0-9]{8,16}$/.test(password || '') ? password : generateEasyPassword();
+        await User.create({
+  name: `${emp.first} ${emp.last}`,
+  email: emp.email,
+  password: await bcrypt.hash(generatedPassword, 12),   // ← hashed
+  role: 'employee'
+});
+      }
+    }
+
+    res.json({ ...emp.toObject(), generatedPassword });
   } catch (error) {
     res.status(500).json({ error: 'Failed to add employee' });
+  }
+});
+
+app.put('/api/employees/:id/password', async (req, res) => {
+  try {
+    const password = String((req.body && req.body.password) || '').trim();
+    if (password.length < 6) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters' });
+    }
+    const emp = await Employee.findOne({ id: req.params.id });
+    if (!emp || !emp.email || emp.email === '-') {
+      return res.status(404).json({ error: 'This employee has no email on file. Add an email first.' });
+    }
+
+    const hash = await bcrypt.hash(password, 12);
+
+    // 1) find the login account by the employee's email
+    let user = await User.findOne({ email: emailMatch(emp.email) });
+
+    // 2) fallback: find it by the employee's full name
+    if (!user) {
+      const fullName = `${emp.first} ${emp.last}`.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      user = await User.findOne({ role: 'employee', name: new RegExp('^' + fullName + '$', 'i') });
+    }
+
+    if (user) {
+      user.password = hash;
+      user.email = emp.email.trim();      // keep login email in sync with the employee record
+      await user.save();
+    } else {
+      // 3) no account exists at all: create one
+      await User.create({
+        name: `${emp.first} ${emp.last}`,
+        email: emp.email.trim(),
+        password: hash,
+        role: 'employee'
+      });
+    }
+
+    await Activity.create({ icon: 'fa-key', text: `Password reset for ${emp.first} ${emp.last}`, when: 'just now' });
+    res.json({ success: true, loginEmail: emp.email.trim() });
+  } catch (error) {
+    console.error('Password reset error:', error);
+    res.status(500).json({ error: 'Failed to update password' });
+  }
+});
+
+// HR attaches a biometric device log entry directly — sets the EXACT
+// time in / time out so both HR and the employee see the same real value.
+app.post('/api/attendance/biometric-log', async (req, res) => {
+  try {
+    const { employeeId, date, timeIn, timeOut } = req.body;
+    if (!employeeId || !date) return res.status(400).json({ error: 'employeeId and date are required' });
+    const emp = await Employee.findOne({ id: employeeId });
+    if (!emp) return res.status(404).json({ error: 'Employee not found' });
+
+    let log = await AttendanceLog.findOne({ employeeId, date });
+    if (!log) {
+      log = new AttendanceLog({ employeeId, name: `${emp.first} ${emp.last}`, department: emp.department, date, timeIn: null, timeOut: null, status: 'Present' });
+    }
+    if (timeIn) log.timeIn = timeIn;
+    if (timeOut) log.timeOut = timeOut;
+
+    if (log.timeIn) {
+      const inHour = parseTimeToHourFloat(log.timeIn);
+      log.status = inHour > 8 ? 'Late' : 'Present';
+    }
+    if (log.timeOut) {
+      const outHour = parseTimeToHourFloat(log.timeOut);
+      if (outHour < 18) log.status = 'Undertime';
+    }
+    log.source = 'Biometric';
+    await log.save();
+
+    await Activity.create({ icon: 'fa-fingerprint', text: `Biometric log attached for ${log.name} (${date})`, when: 'just now' });
+    res.json({ success: true, log });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to attach biometric log' });
+  }
+});
+
+// HR attaches a photo (and optionally time in/out rows read from it)
+app.post('/api/attendance/biometric-import', async (req, res) => {
+  try {
+    const { fileName, image, rawText, importedBy, rows = [], assignedTo = [] } = req.body;
+    if (!image) return res.status(400).json({ error: 'Please attach a photo' });
+
+    let saved = 0;
+    const storedRows = [];
+
+    for (const r of rows) {
+      const row = {
+        employeeId: r.employeeId || '', name: r.name || '', department: r.department || '',
+        position: r.position || '', date: r.date || '', timeIn: r.timeIn || '', timeOut: r.timeOut || '',
+        status: '', matched: false
+      };
+      try {
+        const emp = r.include && r.employeeId ? await Employee.findOne({ id: r.employeeId }) : null;
+        if (emp && r.date && (r.timeIn || r.timeOut)) {
+          let log = await AttendanceLog.findOne({ employeeId: emp.id, date: r.date });
+          if (!log) {
+            log = new AttendanceLog({ employeeId: emp.id, name: `${emp.first} ${emp.last}`, department: emp.department, date: r.date, timeIn: null, timeOut: null, status: 'Present' });
+          }
+          if (r.timeIn) log.timeIn = r.timeIn;
+          if (r.timeOut) log.timeOut = r.timeOut;
+          if (log.timeIn) log.status = parseTimeToHourFloat(log.timeIn) > 8 ? 'Late' : 'Present';
+          if (log.timeOut && parseTimeToHourFloat(log.timeOut) < 18) log.status = 'Undertime';
+          log.source = 'Biometric Photo';
+          await log.save();
+          row.status = log.status;
+          row.matched = true;
+          row.name = `${emp.first} ${emp.last}`;
+          row.department = emp.department;
+          row.position = emp.position;
+          saved++;
+        }
+      } catch (rowErr) {
+        console.error('Biometric row skipped:', rowErr.message);
+      }
+      storedRows.push(row);
+    }
+
+    await BiometricImport.create({
+      fileName: fileName || 'biometric-photo',
+      image, rawText: rawText || '', importedBy: importedBy || 'HR Admin',
+      savedCount: saved, assignedTo, rows: storedRows
+    });
+
+    try {
+      await Activity.create({
+        icon: 'fa-fingerprint',
+        text: `Biometric photo attached` + (saved ? ` — ${saved} attendance record(s) updated` : '') + (assignedTo.length ? `, shown to ${assignedTo.length} employee(s)` : ''),
+        when: 'just now'
+      });
+    } catch (e) {}
+
+    res.json({ success: true, saved });
+  } catch (error) {
+    console.error('Biometric import error:', error);
+    res.status(500).json({ error: 'Failed to import biometric photo: ' + error.message });
+  }
+});
+
+// HR attaches a photo (optionally with attendance rows read from it)
+app.post('/api/attendance/biometric-import', async (req, res) => {
+  try {
+    const { fileName, image, rawText, importedBy, rows = [], assignedTo = [] } = req.body;
+    if (!image) return res.status(400).json({ error: 'Please attach a photo' });
+
+    let saved = 0;
+    const storedRows = [];
+
+    for (const r of rows) {
+      const row = {
+        employeeId: r.employeeId || '', name: r.name || '', department: r.department || '',
+        position: r.position || '', date: r.date || '', timeIn: r.timeIn || '', timeOut: r.timeOut || '',
+        status: '', matched: false
+      };
+      try {
+        const emp = r.include && r.employeeId ? await Employee.findOne({ id: r.employeeId }) : null;
+        if (emp && r.date && (r.timeIn || r.timeOut)) {
+          let log = await AttendanceLog.findOne({ employeeId: emp.id, date: r.date });
+          if (!log) {
+            log = new AttendanceLog({ employeeId: emp.id, name: `${emp.first} ${emp.last}`, department: emp.department, date: r.date, timeIn: null, timeOut: null, status: 'Present' });
+          }
+          if (r.timeIn) log.timeIn = r.timeIn;
+          if (r.timeOut) log.timeOut = r.timeOut;
+          if (log.timeIn) log.status = parseTimeToHourFloat(log.timeIn) > 8 ? 'Late' : 'Present';
+          if (log.timeOut && parseTimeToHourFloat(log.timeOut) < 18) log.status = 'Undertime';
+          log.source = 'Biometric Photo';
+          await log.save();
+          row.status = log.status;
+          row.matched = true;
+          row.name = `${emp.first} ${emp.last}`;
+          row.department = emp.department;
+          row.position = emp.position;
+          saved++;
+        }
+      } catch (rowErr) {
+        console.error('Biometric row skipped:', rowErr.message);
+      }
+      storedRows.push(row);
+    }
+
+    await BiometricImport.create({
+      fileName: fileName || 'biometric-photo',
+      image, rawText: rawText || '', importedBy: importedBy || 'HR Admin',
+      savedCount: saved, assignedTo, rows: storedRows
+    });
+
+    try {
+      await Activity.create({
+        icon: 'fa-fingerprint',
+        text: 'Biometric photo attached' + (saved ? ` — ${saved} attendance record(s) updated` : '') + (assignedTo.length ? `, shown to ${assignedTo.length} employee(s)` : ''),
+        when: 'just now'
+      });
+    } catch (e) {}
+
+    res.json({ success: true, saved });
+  } catch (error) {
+    console.error('Biometric import error:', error);
+    res.status(500).json({ error: 'Failed to import biometric photo: ' + error.message });
+  }
+});
+
+// List of attached photos (without the heavy image data)
+app.get('/api/attendance/biometric-imports', async (req, res) => {
+  try {
+    res.json(await BiometricImport.find({}, { image: 0, rawText: 0 }).sort({ createdAt: -1 }).limit(100));
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch biometric imports' });
+  }
+});
+
+// Serves just the photo itself (used for the thumbnail in the HR list)
+
+app.get('/api/attendance/biometric-imports/:id/image', async (req, res) => {
+  try {
+    const doc = await BiometricImport.findById(req.params.id, { image: 1 });
+    if (!doc || !doc.image) return res.status(404).end();
+    const m = doc.image.match(/^data:(.+?);base64,(.+)$/);
+    if (!m) return res.status(404).end();
+    res.set('Content-Type', m[1]);
+    res.set('Cache-Control', 'public, max-age=86400');
+    res.send(Buffer.from(m[2], 'base64'));
+  } catch (error) {
+    res.status(500).end();
+  }
+});
+
+// One attached photo with its image and all rows
+app.get('/api/attendance/biometric-imports/:id', async (req, res) => {
+  try {
+    const doc = await BiometricImport.findById(req.params.id);
+    if (!doc) return res.status(404).json({ error: 'Not found' });
+    res.json(doc);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch biometric import' });
+  }
+});
+
+// Removes only the saved photo record (attendance logs stay)
+app.delete('/api/attendance/biometric-imports/:id', async (req, res) => {
+  try {
+    await BiometricImport.findByIdAndDelete(req.params.id);
+    res.json({ ok: true });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to delete biometric import' });
+  }
+});
+
+// Bulk save: many employees' time in / out read from a biometric photo.
+// Same rules as the single biometric log (after 8:00 = Late, out before 6:00 PM = Undertime).
+app.post('/api/attendance/biometric-bulk', async (req, res) => {
+  try {
+    const { entries } = req.body;
+    if (!Array.isArray(entries) || !entries.length) {
+      return res.status(400).json({ error: 'No entries provided' });
+    }
+    let saved = 0;
+    const skipped = [];
+    for (const { employeeId, date, timeIn, timeOut } of entries) {
+      const emp = await Employee.findOne({ id: employeeId });
+      if (!emp || !date || (!timeIn && !timeOut)) { skipped.push(employeeId); continue; }
+
+      let log = await AttendanceLog.findOne({ employeeId, date });
+      if (!log) {
+        log = new AttendanceLog({ employeeId, name: `${emp.first} ${emp.last}`, department: emp.department, date, timeIn: null, timeOut: null, status: 'Present' });
+      }
+      if (timeIn) log.timeIn = timeIn;
+      if (timeOut) log.timeOut = timeOut;
+
+      if (log.timeIn) {
+        log.status = parseTimeToHourFloat(log.timeIn) > 8 ? 'Late' : 'Present';
+      }
+      if (log.timeOut && parseTimeToHourFloat(log.timeOut) < 18) {
+        log.status = 'Undertime';
+      }
+      log.source = 'Biometric Photo';
+      await log.save();
+      saved++;
+    }
+    await Activity.create({ icon: 'fa-fingerprint', text: `Biometric photo attached — ${saved} attendance record(s) updated`, when: 'just now' });
+    res.json({ success: true, saved, skipped });
+  } catch (error) {
+    console.error('Biometric bulk error:', error);
+    res.status(500).json({ error: 'Failed to save biometric data' });
   }
 });
 
@@ -374,10 +805,20 @@ app.put('/api/employees/:id', async (req, res) => {
   try {
     const old = await Employee.findOne({ id: req.params.id });
     const updated = await Employee.findOneAndUpdate({ id: req.params.id }, req.body, { new: true });
-    if (old && updated && old.department !== updated.department) {
+    if (!updated) return res.status(404).json({ error: 'Employee not found' });
+
+    if (old && old.department !== updated.department) {
       await Department.updateOne({ name: old.department }, { $inc: { count: -1 } });
       await Department.updateOne({ name: updated.department }, { $inc: { count: 1 } });
     }
+
+    // If the email changed, move the login account to the new email too
+    const oldEmail = (old && old.email || '').trim().toLowerCase();
+    const newEmail = (updated.email || '').trim();
+    if (oldEmail && newEmail && newEmail !== '-' && oldEmail !== newEmail.toLowerCase()) {
+      await User.updateOne({ email: emailMatch(old.email) }, { email: newEmail });
+    }
+
     await Activity.create({ icon: 'fa-user-pen', text: `${updated.first} ${updated.last}'s record was updated`, when: 'just now' });
     res.json(updated);
   } catch (error) {
@@ -406,34 +847,49 @@ app.put('/api/employees/:id/leave-balance', async (req, res) => {
   }
 });
 
-// Resign employee — save full record to Separated collection
+// Resign employee: move the FULL record to Separated and remove from Employees
 app.put('/api/employees/:id/resign', async (req, res) => {
   try {
     const { resignDate, resignedBy } = req.body;
     const emp = await Employee.findOne({ id: req.params.id });
     if (!emp) return res.status(404).json({ error: 'Employee not found' });
 
-    const sepRecord = new Separated({
-      id: emp.id, first: emp.first, middle: emp.middle, last: emp.last,
-      dob: emp.dob, gender: emp.gender, position: emp.position,
-      department: emp.department, dateHired: emp.dateHired,
-      salary: emp.salary, status: 'Inactive', type: emp.type,
-      email: emp.email, phone: emp.phone,
-      regularization: emp.regularization, yearsOfService: emp.yearsOfService,
-      resignDate: resignDate || new Date().toISOString().slice(0, 10),
-      resignedBy: resignedBy || 'HR Admin'
-    });
-    await sepRecord.save();
+    const data = emp.toObject();
+    delete data._id; delete data.__v;
+    data.status = 'Inactive';
+    data.resignDate = resignDate || new Date().toISOString().slice(0, 10);
+    data.resignedBy = resignedBy || 'HR Admin';
 
-    emp.status = 'Inactive';
-    emp.resignDate = resignDate || new Date().toISOString().slice(0, 10);
-    await emp.save();
+    const sepRecord = await Separated.findOneAndUpdate({ id: emp.id }, data, { upsert: true, new: true });
+    await Employee.deleteOne({ id: emp.id });
 
     await Activity.create({ icon: 'fa-user-xmark', text: `${emp.first} ${emp.last} moved to Separated`, when: 'just now' });
     res.json({ success: true, message: 'Employee resigned and archived', data: sepRecord });
   } catch (error) {
     console.error('Resign error:', error);
     res.status(500).json({ error: 'Failed to resign employee: ' + error.message });
+  }
+});
+
+// Reactivate: move a separated person back to Employees with everything they had
+app.put('/api/separated/:id/reactivate', async (req, res) => {
+  try {
+    const sep = await Separated.findOne({ id: req.params.id });
+    if (!sep) return res.status(404).json({ error: 'Separated record not found' });
+
+    const data = sep.toObject();
+    delete data._id; delete data.__v; delete data.resignedBy;
+    data.status = 'Active';
+    data.resignDate = '';
+
+    const emp = await Employee.findOneAndUpdate({ id: sep.id }, data, { upsert: true, new: true });
+    await Separated.deleteOne({ id: sep.id });
+
+    await Activity.create({ icon: 'fa-user-check', text: `${emp.first} ${emp.last} was reactivated`, when: 'just now' });
+    res.json({ success: true, employee: emp });
+  } catch (error) {
+    console.error('Reactivate error:', error);
+    res.status(500).json({ error: 'Failed to reactivate employee: ' + error.message });
   }
 });
 
@@ -725,17 +1181,16 @@ app.get('/api/attendance/stats/:employeeId', async (req, res) => {
   }
 });
 
-// Attendance summary across all employees, grouped by day, for the last
-// N days (default 7) — powers the admin dashboard's attendance chart with
-// real data instead of hardcoded numbers.
 app.get('/api/attendance/overview', async (req, res) => {
   try {
     const days = parseInt(req.query.days) || 7;
     const activeCount = await Employee.countDocuments({ status: { $ne: 'Inactive' } });
+    const todayPH = manilaNow().date;
+    const base = new Date(todayPH + 'T00:00:00Z');
     const dateList = [];
     for (let i = days - 1; i >= 0; i--) {
-      const d = new Date();
-      d.setDate(d.getDate() - i);
+      const d = new Date(base);
+      d.setUTCDate(d.getUTCDate() - i);
       dateList.push(d.toISOString().slice(0, 10));
     }
     const logs = await AttendanceLog.find({ date: { $in: dateList } });
@@ -745,7 +1200,7 @@ app.get('/api/attendance/overview', async (req, res) => {
       const late = dayLogs.filter(l => l.status === 'Late').length;
       const loggedCount = dayLogs.length;
       const absent = Math.max(activeCount - present - late, 0);
-      return { date, present, late, absent: loggedCount > 0 || date === new Date().toISOString().slice(0,10) ? absent : 0 };
+      return { date, present, late, absent: loggedCount > 0 || date === todayPH ? absent : 0 };
     });
     res.json(overview);
   } catch (error) {
@@ -758,24 +1213,22 @@ app.post('/api/attendance/scan', async (req, res) => {
     const { employeeId } = req.body;
     const emp = await Employee.findOne({ id: employeeId });
     if (!emp) return res.status(404).json({ error: 'Employee not found' });
-    const date = new Date().toISOString().slice(0, 10);
+    const ph = manilaNow();
+    const date = ph.date;
+    const timeStr = ph.timeStr;
     let log = await AttendanceLog.findOne({ employeeId, date });
-    const now = new Date();
-    const timeStr = formatTime(now);
     let action;
     if (!log) {
       log = new AttendanceLog({ employeeId, name: `${emp.first} ${emp.last}`, department: emp.department, date, timeIn: null, timeOut: null, status: 'Present' });
     }
     if (!log.timeIn) {
       log.timeIn = timeStr;
-      const hourFloat = now.getHours() + now.getMinutes() / 60;
-      log.status = hourFloat > 8 ? 'Late' : 'Present';
+      log.status = ph.hourFloat > 8 ? 'Late' : 'Present';
       action = 'Time In Recorded';
       await Activity.create({ icon: 'fa-fingerprint', text: `${log.name} clocked in (${log.status})`, when: 'just now' });
-        } else if (!log.timeOut) {
+    } else if (!log.timeOut) {
       log.timeOut = timeStr;
-      const outHourFloat = now.getHours() + now.getMinutes() / 60;
-      const isUndertime = outHourFloat < 18; // before 6:00 PM
+      const isUndertime = ph.hourFloat < 18;
       if (isUndertime) log.status = 'Undertime';
       action = 'Time Out Recorded';
       await Activity.create({ icon: 'fa-fingerprint', text: `${log.name} clocked out${isUndertime ? ' (Undertime)' : ''}`, when: 'just now' });
@@ -789,25 +1242,20 @@ app.post('/api/attendance/scan', async (req, res) => {
   }
 });
 
-// ─── Explicit Time In / Time Out (used by the post-login attendance screen) ───
 app.get('/api/attendance/today/:employeeId', async (req, res) => {
   try {
-    const date = new Date().toISOString().slice(0, 10);
-    const log = await AttendanceLog.findOne({ employeeId: req.params.employeeId, date });
+    const log = await AttendanceLog.findOne({ employeeId: req.params.employeeId, date: manilaNow().date });
     res.json(log || null);
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch today\'s attendance' });
   }
 });
 
-// Full daily status for every active employee — fills in "Absent" for
-// anyone who never timed in once the 5:00 PM cutoff has passed, without
-// needing a cron job or altering stored logs.
 app.get('/api/attendance/status-today', async (req, res) => {
   try {
-    const date = new Date().toISOString().slice(0, 10);
-    const now = new Date();
-    const pastCutoff = now.getHours() >= 17; // 5:00 PM
+    const ph = manilaNow();
+    const date = ph.date;
+    const pastCutoff = ph.hour >= 17; // 5:00 PM Philippine time
 
     const emps = await Employee.find({ status: { $ne: 'Inactive' } });
     const logs = await AttendanceLog.find({ date });
@@ -840,19 +1288,18 @@ app.post('/api/attendance/time-in', async (req, res) => {
     const emp = await Employee.findOne({ id: employeeId });
     if (!emp) return res.status(404).json({ error: 'Employee not found' });
 
-    const date = new Date().toISOString().slice(0, 10);
+    const ph = manilaNow();
+    const date = ph.date;
     let log = await AttendanceLog.findOne({ employeeId, date });
     if (log && log.timeIn) {
       return res.status(400).json({ error: 'You have already timed in today.', log });
     }
-    const now = new Date();
-    const timeStr = formatTime(now);
+    const timeStr = ph.timeStr;
     if (!log) {
       log = new AttendanceLog({ employeeId, name: `${emp.first} ${emp.last}`, department: emp.department, date, timeIn: null, timeOut: null, status: 'Present' });
     }
     log.timeIn = timeStr;
-    const hourFloat = now.getHours() + now.getMinutes() / 60;
-    log.status = hourFloat > 8.25 ? 'Late' : 'Present';
+    log.status = ph.hourFloat > 8.25 ? 'Late' : 'Present';
     await log.save();
     await Activity.create({ icon: 'fa-fingerprint', text: `${log.name} timed in (${log.status})`, when: 'just now' });
     res.json({ action: 'Time In Recorded', name: log.name, time: timeStr, status: log.status, log });
@@ -867,7 +1314,8 @@ app.post('/api/attendance/time-out', async (req, res) => {
     const emp = await Employee.findOne({ id: employeeId });
     if (!emp) return res.status(404).json({ error: 'Employee not found' });
 
-    const date = new Date().toISOString().slice(0, 10);
+    const ph = manilaNow();
+    const date = ph.date;
     let log = await AttendanceLog.findOne({ employeeId, date });
     if (!log || !log.timeIn) {
       return res.status(400).json({ error: 'You need to time in first before timing out.' });
@@ -875,17 +1323,42 @@ app.post('/api/attendance/time-out', async (req, res) => {
     if (log.timeOut) {
       return res.status(400).json({ error: 'You have already timed out today.', log });
     }
-        const now = new Date();
-    const timeStr = formatTime(now);
+    const timeStr = ph.timeStr;
     log.timeOut = timeStr;
-    const outHourFloat = now.getHours() + now.getMinutes() / 60;
-    const isUndertime = outHourFloat < 18;
+    const isUndertime = ph.hourFloat < 18;
     if (isUndertime) log.status = 'Undertime';
     await log.save();
     await Activity.create({ icon: 'fa-fingerprint', text: `${log.name} timed out${isUndertime ? ' (Undertime)' : ''}`, when: 'just now' });
     res.json({ action: 'Time Out Recorded', name: log.name, time: timeStr, status: log.status, log });
   } catch (error) {
     res.status(500).json({ error: 'Failed to record time out' });
+  }
+});
+
+// Employee: how many records they have per month (all years)
+app.get('/api/attendance/employee/:employeeId/months', async (req, res) => {
+  try {
+    const logs = await AttendanceLog.find({ employeeId: req.params.employeeId }, { date: 1 });
+    const counts = {};
+    logs.forEach(l => {
+      const key = (l.date || '').slice(0, 7); // "YYYY-MM"
+      if (key) counts[key] = (counts[key] || 0) + 1;
+    });
+    res.json(counts);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch attendance months' });
+  }
+});
+
+// Employee: all records for one month
+app.get('/api/attendance/employee/:employeeId/:month', async (req, res) => {
+  try {
+    const { employeeId, month } = req.params;
+    if (!/^\d{4}-\d{2}$/.test(month)) return res.status(400).json({ error: 'Invalid month format, expected YYYY-MM' });
+    const logs = await AttendanceLog.find({ employeeId, date: { $regex: '^' + month } }).sort({ date: -1 });
+    res.json(logs);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch attendance' });
   }
 });
 
